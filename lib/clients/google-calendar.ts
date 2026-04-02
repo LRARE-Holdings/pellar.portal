@@ -38,6 +38,7 @@ export async function exchangeCode(code: string): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
+  scope: string;
 }> {
   const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
@@ -89,7 +90,10 @@ async function getValidAccessToken(userId: string): Promise<string | null> {
     .eq("provider", "google")
     .single();
 
-  if (!token) return null;
+  if (!token) {
+    console.error("Google Calendar: no oauth token found for user", userId);
+    return null;
+  }
 
   const expiresAt = new Date(token.expires_at);
   const now = new Date();
@@ -112,7 +116,8 @@ async function getValidAccessToken(userId: string): Promise<string | null> {
         .eq("id", token.id);
 
       return refreshed.access_token;
-    } catch {
+    } catch (err) {
+      console.error("Google Calendar: token refresh failed", err);
       return null;
     }
   }
@@ -223,7 +228,11 @@ export async function listEvents(
     },
   );
 
-  if (!response.ok) return [];
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Google Calendar listEvents failed: ${response.status} ${errorText}`);
+    return [];
+  }
 
   const data = (await response.json()) as {
     items?: Array<{

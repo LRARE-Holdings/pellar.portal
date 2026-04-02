@@ -78,11 +78,19 @@ export default async function CalendarPage() {
           .filter((id): id is string => id !== null),
       );
 
+      console.log("Calendar: fetching Google events", {
+        userId: user.id,
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+      });
+
       const rawEvents = await listEvents(
         user.id,
         timeMin.toISOString(),
         timeMax.toISOString(),
       );
+
+      console.log("Calendar: Google events fetched", rawEvents.length);
 
       // Filter out events that are already portal meetings (avoid duplicates)
       googleEvents = rawEvents

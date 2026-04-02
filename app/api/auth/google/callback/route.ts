@@ -44,7 +44,7 @@ export async function GET(req: Request) {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
-        scope: "https://www.googleapis.com/auth/calendar.events",
+        scope: tokens.scope || "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly",
       },
       { onConflict: "user_id,provider" },
     );

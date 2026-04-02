@@ -88,6 +88,9 @@ export function LeadTable({ leads }: LeadTableProps) {
                 Score
               </th>
               <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-stone">
+                Value
+              </th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-stone">
                 Stage
               </th>
             </tr>
@@ -95,7 +98,7 @@ export function LeadTable({ leads }: LeadTableProps) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-stone">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-stone">
                   No leads match your filters.
                 </td>
               </tr>
@@ -124,6 +127,11 @@ export function LeadTable({ leads }: LeadTableProps) {
                 </td>
                 <td className="px-4 py-3">
                   <ScoreDot score={lead.score} />
+                </td>
+                <td className="px-4 py-3 text-sm text-stone">
+                  {lead.deal_value != null && lead.deal_value > 0
+                    ? `GBP ${lead.deal_value.toLocaleString("en-GB")}`
+                    : "\u2014"}
                 </td>
                 <td className="px-4 py-3">
                   <StageBadge stage={lead.stage} />

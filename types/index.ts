@@ -57,6 +57,7 @@ export interface Lead {
   last_activity: string | null;
   followup_count: number;
   stale: boolean;
+  deal_value: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +136,9 @@ export interface DashboardStats {
   lost: number;
   avg_score: number;
   leads_today: number;
+  pipeline_value: number;
+  leads_this_week: number;
+  won_value: number;
 }
 
 export interface EmailStats {
@@ -352,4 +356,55 @@ export interface CalendarEvent {
   status?: string;
   contactName?: string;
   htmlLink?: string | null;
+}
+
+// Command centre view types
+
+export type ActionType =
+  | "high_score_uncontacted"
+  | "responded_no_briefing"
+  | "bounced_email"
+  | "meeting_soon";
+
+export interface ActionItem {
+  lead_id: string;
+  company: string;
+  contact_name: string;
+  score: number;
+  stage: string;
+  action_type: ActionType;
+  action_label: string;
+  priority: number;
+  relevant_date: string;
+}
+
+export interface PipelineValue {
+  stage: string;
+  lead_count: number;
+  total_value: number;
+  avg_value: number;
+}
+
+export interface EmailDeliveryHealth {
+  total_sent: number;
+  delivered: number;
+  opened: number;
+  bounced: number;
+  failed: number;
+  delivery_rate: number;
+  bounce_rate: number;
+  open_rate: number;
+}
+
+export interface ScoreDistribution {
+  score_band: string;
+  band_rank: number;
+  lead_count: number;
+}
+
+export interface ResponseTimeMetrics {
+  avg_response_hours: number;
+  min_response_hours: number;
+  max_response_hours: number;
+  total_responses: number;
 }

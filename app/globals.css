@@ -11,6 +11,8 @@
   --color-light-sage: #EDF3EE;
 
   --font-sans: var(--font-dm-sans);
+
+  --breakpoint-3xl: 2200px;
 }
 
 body {

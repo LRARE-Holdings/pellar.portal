@@ -2,17 +2,21 @@ import { createClient } from "@/lib/supabase/server";
 import { WeeklyChart } from "@/components/analytics-weekly-chart";
 import { AnalyticsFunnel } from "@/components/analytics-funnel";
 import { AnalyticsExportButtons } from "@/components/analytics-export-buttons";
+import { StatCard } from "@/components/stat-card";
 import type {
   WeeklyTrend,
   FunnelStage,
   IndustryBreakdown,
   OfferingBreakdown,
+  DashboardStats,
+  ResponseTimeMetrics,
+  ScoreDistribution,
 } from "@/types";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
 
-  const [trendsResult, funnelResult, industryResult, offeringResult, totalResult] =
+  const [trendsResult, funnelResult, industryResult, offeringResult, totalResult, statsResult, responseTimeResult, scoreDistResult] =
     await Promise.all([
       supabase
         .from("analytics_weekly_trends")
@@ -28,12 +32,18 @@ export default async function AnalyticsPage() {
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("stale", false),
+      supabase.from("dashboard_stats").select("*").single(),
+      supabase.from("response_time_metrics").select("*").single(),
+      supabase.from("score_distribution").select("*").order("band_rank"),
     ]);
 
   const trends = (trendsResult.data || []) as WeeklyTrend[];
   const funnel = (funnelResult.data || []) as FunnelStage[];
   const industries = (industryResult.data || []) as IndustryBreakdown[];
   const offerings = (offeringResult.data || []) as OfferingBreakdown[];
+  const dashStats = (statsResult.data || {}) as DashboardStats;
+  const responseTime = (responseTimeResult.data || {}) as ResponseTimeMetrics;
+  const scoreDist = (scoreDistResult.data || []) as ScoreDistribution[];
 
   const thisWeek = trends[trends.length - 1];
   const totalLeads = totalResult.count || 0;
@@ -78,11 +88,20 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="mt-6 grid grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-3 gap-3 xl:grid-cols-6">
         <StatCard label="Total Leads" value={totalLeads} />
         <StatCard label="This Week" value={thisWeek?.leads_discovered || 0} />
         <StatCard label="Response Rate" value={`${overallResponseRate}%`} />
         <StatCard label="Active Pipeline" value={activePipeline} />
+        <StatCard
+          label="Pipeline Value"
+          value={`GBP ${(dashStats.pipeline_value || 0).toLocaleString("en-GB")}`}
+        />
+        <StatCard
+          label="Avg Response"
+          value={responseTime.avg_response_hours > 0 ? `${responseTime.avg_response_hours}h` : "N/A"}
+          subtitle={responseTime.total_responses > 0 ? `from ${responseTime.total_responses} responses` : undefined}
+        />
       </div>
 
       {/* Weekly Trends */}
@@ -175,8 +194,8 @@ export default async function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Industry + Offering breakdown */}
-      <div className="mt-8 grid grid-cols-2 gap-6">
+      {/* Industry + Offering + Score breakdown */}
+      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2 3xl:grid-cols-3">
         <div>
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
             By Industry
@@ -290,24 +309,44 @@ export default async function AnalyticsPage() {
             </table>
           </div>
         </div>
+
+        {/* Score distribution */}
+        <div>
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
+            Score Distribution
+          </h2>
+          <div className="mt-3 rounded-lg border border-warm-gray bg-white p-5">
+            {scoreDist.length === 0 && (
+              <p className="text-sm text-stone">No data yet.</p>
+            )}
+            <div className="space-y-2">
+              {scoreDist.map((band) => {
+                const maxCount = Math.max(...scoreDist.map((b) => b.lead_count), 1);
+                return (
+                  <div key={band.score_band} className="flex items-center gap-3">
+                    <span className="w-14 text-right text-[11px] font-medium text-stone">
+                      {band.score_band}
+                    </span>
+                    <div className="flex-1">
+                      <div
+                        className="flex h-6 items-center rounded bg-forest/15 px-2"
+                        style={{
+                          width: `${Math.max((band.lead_count / maxCount) * 100, 8)}%`,
+                        }}
+                      >
+                        <span className="text-[11px] font-medium text-forest">
+                          {band.lead_count}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <div className="rounded-lg border border-warm-gray bg-white p-5">
-      <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-stone">
-        {label}
-      </p>
-      <p className="mt-1 text-[28px] font-light text-ink">{value}</p>
-    </div>
-  );
-}

@@ -34,7 +34,7 @@ export default async function BriefingsPage() {
     <div>
       <h1 className="text-[28px] font-normal text-ink">Briefings</h1>
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2 3xl:grid-cols-3">
         {typedBriefings.length === 0 && (
           <p className="text-sm text-stone">
             No briefings generated yet. Briefings are created when a lead

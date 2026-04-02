@@ -10,6 +10,7 @@ import {
   triggerOutreach,
   triggerBriefing,
   scheduleMeetingAction,
+  updateDealValue,
 } from "@/app/(portal)/leads/[id]/actions";
 import type { Lead, Email, Briefing, ActivityLogEntry, Meeting } from "@/types";
 
@@ -36,6 +37,11 @@ export function LeadDetailPanel({
   const [meetingTime, setMeetingTime] = useState("14:00");
   const [meetingDuration, setMeetingDuration] = useState(30);
   const [meetingNotes, setMeetingNotes] = useState("");
+  const [editingDealValue, setEditingDealValue] = useState(false);
+  const [dealValueInput, setDealValueInput] = useState(
+    lead.deal_value?.toString() || "",
+  );
+  const [currentDealValue, setCurrentDealValue] = useState(lead.deal_value);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -72,12 +78,13 @@ export function LeadDetailPanel({
   async function handleScheduleMeeting(e: React.FormEvent) {
     e.preventDefault();
     if (!meetingDate || !meetingTime) return;
-
     setSchedulingMeeting(true);
     setError(null);
     setSuccess(null);
     try {
-      const scheduledAt = new Date(`${meetingDate}T${meetingTime}:00`).toISOString();
+      const scheduledAt = new Date(
+        `${meetingDate}T${meetingTime}:00`,
+      ).toISOString();
       await scheduleMeetingAction(
         lead.id,
         scheduledAt,
@@ -99,6 +106,13 @@ export function LeadDetailPanel({
     }
   }
 
+  async function handleSaveDealValue() {
+    const parsed = dealValueInput ? parseInt(dealValueInput, 10) : null;
+    await updateDealValue(lead.id, parsed);
+    setCurrentDealValue(parsed);
+    setEditingDealValue(false);
+  }
+
   const canScheduleMeeting =
     lead.contact_email &&
     ["responded", "scoping_call", "proposal"].includes(lead.stage);
@@ -111,10 +125,10 @@ export function LeadDetailPanel({
           <h1 className="text-[28px] font-normal text-ink">{lead.company}</h1>
           <p className="mt-1 text-sm text-stone">
             {lead.contact_name}
-            {lead.contact_email && ` · ${lead.contact_email}`}
+            {lead.contact_email && ` \u00b7 ${lead.contact_email}`}
           </p>
           <p className="mt-0.5 text-sm text-stone">
-            {lead.industry} · {lead.location}
+            {lead.industry} \u00b7 {lead.location}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -153,7 +167,7 @@ export function LeadDetailPanel({
         )}
       </div>
 
-      {/* Meeting scheduling form */}
+      {/* Meeting form */}
       {showMeetingForm && (
         <form
           onSubmit={handleScheduleMeeting}
@@ -234,10 +248,46 @@ export function LeadDetailPanel({
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       {success && <p className="mt-3 text-sm text-forest">{success}</p>}
 
-      {/* Details grid */}
-      <div className="mt-6 grid grid-cols-2 gap-6">
-        {/* Left column */}
-        <div className="space-y-6">
+      {/* 3-column details grid */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2 3xl:grid-cols-3">
+        {/* Column 1: Lead info */}
+        <div className="space-y-5">
+          {/* Deal value */}
+          <div className="rounded-lg border border-warm-gray bg-white p-5">
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
+              Deal Value
+            </h2>
+            {editingDealValue ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-sm text-stone">GBP</span>
+                <input
+                  type="number"
+                  value={dealValueInput}
+                  onChange={(e) => setDealValueInput(e.target.value)}
+                  className="w-32 rounded-lg border border-warm-gray bg-white px-3 py-1.5 text-sm text-ink focus:border-forest focus:outline-none"
+                  placeholder="0"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveDealValue();
+                    if (e.key === "Escape") setEditingDealValue(false);
+                  }}
+                />
+                <Button size="sm" onClick={handleSaveDealValue}>
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingDealValue(true)}
+                className="mt-2 text-[28px] font-light text-ink hover:text-forest"
+              >
+                {currentDealValue != null
+                  ? `GBP ${currentDealValue.toLocaleString("en-GB")}`
+                  : "Set value"}
+              </button>
+            )}
+          </div>
+
           {/* Meetings */}
           {meetings.length > 0 && (
             <div className="rounded-lg border border-warm-gray bg-white p-5">
@@ -285,32 +335,10 @@ export function LeadDetailPanel({
               </p>
             </div>
           )}
-
-          {/* Briefings */}
-          {briefings.length > 0 && (
-            <div className="rounded-lg border border-warm-gray bg-white p-5">
-              <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
-                Briefings
-              </h2>
-              {briefings.map((briefing) => (
-                <div key={briefing.id} className="mt-3">
-                  <p className="text-sm text-ink">{briefing.summary}</p>
-                  <div className="mt-2 space-y-1">
-                    {(briefing.talking_points as string[]).map((point, idx) => (
-                      <p key={idx} className="text-sm text-stone">
-                        {idx + 1}. {point}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Right column */}
-        <div className="space-y-6">
-          {/* Emails */}
+        {/* Column 2: Emails + Briefings */}
+        <div className="space-y-5">
           <div className="rounded-lg border border-warm-gray bg-white p-5">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
               Email History
@@ -354,7 +382,29 @@ export function LeadDetailPanel({
             </div>
           </div>
 
-          {/* Activity */}
+          {briefings.length > 0 && (
+            <div className="rounded-lg border border-warm-gray bg-white p-5">
+              <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
+                Briefings
+              </h2>
+              {briefings.map((briefing) => (
+                <div key={briefing.id} className="mt-3">
+                  <p className="text-sm text-ink">{briefing.summary}</p>
+                  <div className="mt-2 space-y-1">
+                    {(briefing.talking_points as string[]).map((point, idx) => (
+                      <p key={idx} className="text-sm text-stone">
+                        {idx + 1}. {point}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Column 3: Activity */}
+        <div className="space-y-5">
           <div className="rounded-lg border border-warm-gray bg-white p-5">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
               Activity

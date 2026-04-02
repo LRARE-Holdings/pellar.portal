@@ -33,3 +33,11 @@ export async function scheduleMeetingAction(
 export async function cancelMeetingAction(meetingId: string) {
   return cancelMeeting(meetingId);
 }
+
+export async function updateDealValue(leadId: string, value: number | null) {
+  const { supabaseAdmin } = await import("@/lib/supabase/admin");
+  await supabaseAdmin
+    .from("leads")
+    .update({ deal_value: value })
+    .eq("id", leadId);
+}

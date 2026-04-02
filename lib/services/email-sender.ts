@@ -13,14 +13,14 @@ async function canSendToday(): Promise<boolean> {
     .eq("direction", "outbound")
     .gte("created_at", todayStart.toISOString());
 
-  return (count || 0) < 10;
+  return (count || 0) < 50;
 }
 
 function isSendWindow(): boolean {
   const now = new Date();
   const day = now.getUTCDay();
   const hour = now.getUTCHours();
-  return day >= 1 && day <= 5 && hour >= 8 && hour < 10;
+  return day >= 1 && day <= 5 && hour >= 6 && hour < 17;
 }
 
 export async function sendOutreachEmail(
@@ -49,12 +49,12 @@ export async function sendOutreachEmail(
   // 3. Check send guards
   if (!isSendWindow()) {
     throw new Error(
-      "Outside send window (08:00-10:00 UTC, Monday-Friday only)",
+      "Outside send window (06:00-17:00 UTC, Monday-Friday only)",
     );
   }
 
   if (!(await canSendToday())) {
-    throw new Error("Daily send limit reached (10 emails/day)");
+    throw new Error("Daily send limit reached (50 emails/day)");
   }
 
   // 4. Draft or use custom content

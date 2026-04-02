@@ -88,7 +88,7 @@ export default async function DashboardPage() {
                   <StageBadge stage={lead.stage} />
                 </div>
                 <p className="mt-1 text-xs text-stone">
-                  {lead.contact_name} &middot; {lead.industry} &middot;{" "}
+                  {lead.contact_name} · {lead.industry} ·{" "}
                   {lead.location}
                 </p>
               </a>

@@ -284,8 +284,8 @@ export function UpcomingMeetings({
                     hour: "2-digit",
                     minute: "2-digit",
                   })}`}
-              {event.contactName && ` \u00b7 ${event.contactName}`}
-              {event.location && ` \u00b7 ${event.location}`}
+              {event.contactName && ` · ${event.contactName}`}
+              {event.location && ` · ${event.location}`}
             </p>
           </div>
         );

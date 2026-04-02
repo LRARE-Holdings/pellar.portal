@@ -37,7 +37,7 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
           hour: "2-digit",
           minute: "2-digit",
         })}{" "}
-        &middot; {meeting.duration_minutes} min
+        · {meeting.duration_minutes} min
       </p>
       {meeting.google_event_id && (
         <p className="mt-0.5 text-[11px] text-sage">

@@ -56,7 +56,7 @@ export default async function BriefingDetailPage({
       </h1>
       {typedLead && (
         <p className="mt-1 text-sm text-stone">
-          {typedLead.company} \u00b7 {typedLead.contact_name} \u00b7{" "}
+          {typedLead.company} · {typedLead.contact_name} ·{" "}
           {typedLead.industry}
         </p>
       )}

@@ -111,10 +111,10 @@ export function LeadDetailPanel({
           <h1 className="text-[28px] font-normal text-ink">{lead.company}</h1>
           <p className="mt-1 text-sm text-stone">
             {lead.contact_name}
-            {lead.contact_email && ` \u00b7 ${lead.contact_email}`}
+            {lead.contact_email && ` · ${lead.contact_email}`}
           </p>
           <p className="mt-0.5 text-sm text-stone">
-            {lead.industry} \u00b7 {lead.location}
+            {lead.industry} · {lead.location}
           </p>
         </div>
         <div className="flex items-center gap-3">

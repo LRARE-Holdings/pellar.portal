@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { anthropic } from "@/lib/anthropic";
 import { intentParsePrompt } from "@/lib/prompts/intent";
 import { generateBriefing } from "@/lib/services/briefing-gen";
+import { autoScheduleMeetingFromIntent } from "@/lib/services/meetings";
 import type {
   Lead,
   InboundResult,
@@ -122,6 +123,14 @@ export async function processInbound(
       .eq("id", typedLead.id);
     await generateBriefing(typedLead.id);
     briefingGenerated = true;
+
+    // Auto-schedule meeting if intent is specifically "meeting"
+    if (intentResult.intent === "meeting") {
+      await autoScheduleMeetingFromIntent(
+        typedLead.id,
+        intentResult.meeting_preference,
+      );
+    }
   } else if (intentResult.intent === "not_interested") {
     await supabaseAdmin
       .from("leads")

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { LeadDetailPanel } from "@/components/lead-detail-panel";
 import { notFound } from "next/navigation";
-import type { Lead, Email, Briefing, ActivityLogEntry } from "@/types";
+import type { Lead, Email, Briefing, ActivityLogEntry, Meeting } from "@/types";
 
 export default async function LeadDetailPage({
   params,
@@ -11,7 +11,7 @@ export default async function LeadDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [leadResult, emailsResult, briefingsResult, activityResult] =
+  const [leadResult, emailsResult, briefingsResult, activityResult, meetingsResult] =
     await Promise.all([
       supabase.from("leads").select("*").eq("id", id).single(),
       supabase
@@ -30,6 +30,11 @@ export default async function LeadDetailPage({
         .eq("lead_id", id)
         .order("created_at", { ascending: false })
         .limit(20),
+      supabase
+        .from("meetings")
+        .select("*")
+        .eq("lead_id", id)
+        .order("scheduled_at", { ascending: false }),
     ]);
 
   if (!leadResult.data) {
@@ -42,6 +47,7 @@ export default async function LeadDetailPage({
       emails={(emailsResult.data || []) as Email[]}
       briefings={(briefingsResult.data || []) as Briefing[]}
       activity={(activityResult.data || []) as ActivityLogEntry[]}
+      meetings={(meetingsResult.data || []) as Meeting[]}
     />
   );
 }

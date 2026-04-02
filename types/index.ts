@@ -303,3 +303,37 @@ export interface OfferingBreakdown {
   won: number;
   response_rate: number;
 }
+
+// Calendar and meetings types
+
+export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+
+export interface Meeting {
+  id: string;
+  lead_id: string;
+  title: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  location: string | null;
+  status: MeetingStatus;
+  google_event_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MeetingWithLead extends Meeting {
+  lead: Pick<Lead, "id" | "company" | "contact_name" | "contact_email" | "industry">;
+}
+
+export interface OAuthToken {
+  id: string;
+  user_id: string;
+  provider: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  scope: string | null;
+  created_at: string;
+  updated_at: string;
+}

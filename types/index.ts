@@ -337,3 +337,19 @@ export interface OAuthToken {
   created_at: string;
   updated_at: string;
 }
+
+// Unified calendar event (portal meetings + Google Calendar events)
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  location: string | null;
+  source: "portal" | "google";
+  leadId?: string;
+  status?: string;
+  contactName?: string;
+  htmlLink?: string | null;
+}

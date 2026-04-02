@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { CalendarGrid, UpcomingMeetings } from "@/components/calendar-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Meeting, MeetingWithLead, Lead } from "@/types";
+import { listEvents } from "@/lib/clients/google-calendar";
+import type { Meeting, MeetingWithLead, Lead, CalendarEvent } from "@/types";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -11,7 +12,7 @@ export default async function CalendarPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch all meetings with lead data
+  // Fetch all portal meetings
   const { data: meetingsRaw } = await supabase
     .from("meetings")
     .select("*")
@@ -49,8 +50,10 @@ export default async function CalendarPage() {
       lead: leadMap[m.lead_id],
     }));
 
-  // Check Google Calendar connection
+  // Check Google Calendar connection and fetch external events
   let hasGoogleCalendar = false;
+  let googleEvents: CalendarEvent[] = [];
+
   if (user) {
     const { data: token } = await supabase
       .from("oauth_tokens")
@@ -59,7 +62,64 @@ export default async function CalendarPage() {
       .eq("provider", "google")
       .single();
     hasGoogleCalendar = !!token;
+
+    if (hasGoogleCalendar) {
+      // Fetch 3 months of events (1 month back, 2 months forward)
+      const timeMin = new Date();
+      timeMin.setMonth(timeMin.getMonth() - 1);
+      timeMin.setDate(1);
+      const timeMax = new Date();
+      timeMax.setMonth(timeMax.getMonth() + 3);
+      timeMax.setDate(0);
+
+      const portalEventIds = new Set(
+        meetings
+          .map((m) => m.google_event_id)
+          .filter((id): id is string => id !== null),
+      );
+
+      const rawEvents = await listEvents(
+        user.id,
+        timeMin.toISOString(),
+        timeMax.toISOString(),
+      );
+
+      // Filter out events that are already portal meetings (avoid duplicates)
+      googleEvents = rawEvents
+        .filter((e) => !portalEventIds.has(e.id))
+        .map((e) => ({
+          id: e.id,
+          title: e.summary,
+          start: e.start,
+          end: e.end,
+          isAllDay: e.isAllDay,
+          location: e.location,
+          source: "google" as const,
+          htmlLink: e.htmlLink,
+        }));
+    }
   }
+
+  // Convert portal meetings to unified CalendarEvent format
+  const portalEvents: CalendarEvent[] = meetingsWithLeads.map((m) => {
+    const endTime = new Date(
+      new Date(m.scheduled_at).getTime() + m.duration_minutes * 60 * 1000,
+    );
+    return {
+      id: m.id,
+      title: `${m.lead.company}: ${m.title}`,
+      start: m.scheduled_at,
+      end: endTime.toISOString(),
+      isAllDay: false,
+      location: m.location,
+      source: "portal" as const,
+      leadId: m.lead_id,
+      status: m.status,
+      contactName: m.lead.contact_name,
+    };
+  });
+
+  const allEvents = [...portalEvents, ...googleEvents];
 
   const now = new Date();
 
@@ -82,7 +142,7 @@ export default async function CalendarPage() {
 
       <div className="mt-6">
         <CalendarGrid
-          meetings={meetingsWithLeads}
+          events={allEvents}
           initialYear={now.getFullYear()}
           initialMonth={now.getMonth()}
         />
@@ -90,10 +150,10 @@ export default async function CalendarPage() {
 
       <div className="mt-8">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
-          Upcoming Meetings
+          Upcoming
         </h2>
         <div className="mt-3">
-          <UpcomingMeetings meetings={meetingsWithLeads} />
+          <UpcomingMeetings events={allEvents} />
         </div>
       </div>
     </div>

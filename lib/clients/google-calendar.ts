@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
-const SCOPES = "https://www.googleapis.com/auth/calendar.events";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
 
 function getClientId(): string {
   return process.env.GOOGLE_CLIENT_ID || "";
@@ -196,6 +196,74 @@ export async function deleteEvent(
   );
 
   return response.ok || response.status === 404;
+}
+
+export async function listEvents(
+  userId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<GoogleCalendarEvent[]> {
+  const accessToken = await getValidAccessToken(userId);
+  if (!accessToken) return [];
+
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+  });
+
+  const response = await fetch(
+    `${GOOGLE_CALENDAR_API}/calendars/primary/events?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) return [];
+
+  const data = (await response.json()) as {
+    items?: Array<{
+      id: string;
+      summary?: string;
+      description?: string;
+      location?: string;
+      start?: { dateTime?: string; date?: string };
+      end?: { dateTime?: string; date?: string };
+      status?: string;
+      attendees?: Array<{ email: string; responseStatus?: string }>;
+      htmlLink?: string;
+    }>;
+  };
+
+  return (data.items || [])
+    .filter((item) => item.status !== "cancelled")
+    .map((item) => ({
+      id: item.id,
+      summary: item.summary || "(No title)",
+      description: item.description || null,
+      location: item.location || null,
+      start: item.start?.dateTime || item.start?.date || "",
+      end: item.end?.dateTime || item.end?.date || "",
+      isAllDay: !item.start?.dateTime,
+      attendees: (item.attendees || []).map((a) => a.email),
+      htmlLink: item.htmlLink || null,
+    }));
+}
+
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description: string | null;
+  location: string | null;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  attendees: string[];
+  htmlLink: string | null;
 }
 
 export async function hasValidTokens(userId: string): Promise<boolean> {

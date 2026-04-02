@@ -80,7 +80,7 @@ export async function sendOutreachEmail(
       lead_id: typedLead.id,
       direction: "outbound",
       status: "queued",
-      from_address: "hello@pellar.co.uk",
+      from_address: "alex@pellar.co.uk",
       to_address: typedLead.contact_email,
       subject,
       body_html: bodyHtml,
@@ -96,12 +96,12 @@ export async function sendOutreachEmail(
   // 6. Send via Resend
   try {
     const result = await resend.emails.send({
-      from: "Alex at Pellar <hello@pellar.co.uk>",
+      from: "Alex at Pellar <alex@pellar.co.uk>",
       to: typedLead.contact_email,
       subject,
       html: bodyHtml,
       text: bodyText,
-      replyTo: "hello@inbound.pellar.co.uk",
+      replyTo: "alex@inbound.pellar.co.uk",
       tags: [
         { name: "lead_id", value: typedLead.id },
         { name: "offering", value: typedLead.offering || "software" },

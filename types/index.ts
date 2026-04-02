@@ -264,3 +264,42 @@ export const OFFERING_DESCRIPTIONS: Record<OfferingType, string> = {
   automation:
     "Process automation to remove repetitive tasks and reduce human error",
 };
+
+// Analytics view types
+
+export interface WeeklyTrend {
+  week_start: string;
+  week_label: string;
+  leads_discovered: number;
+  emails_sent: number;
+  followups_sent: number;
+  responses_received: number;
+  briefings_generated: number;
+  response_rate: number;
+}
+
+export interface FunnelStage {
+  stage: string;
+  stage_rank: number;
+  lead_count: number;
+  pct_of_total: number;
+}
+
+export interface IndustryBreakdown {
+  industry: string;
+  total_leads: number;
+  contacted: number;
+  responded: number;
+  won: number;
+  response_rate: number;
+  avg_score: number;
+}
+
+export interface OfferingBreakdown {
+  offering: OfferingType;
+  total_leads: number;
+  contacted: number;
+  responded: number;
+  won: number;
+  response_rate: number;
+}

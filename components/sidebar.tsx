@@ -11,6 +11,7 @@ const navItems = [
   { href: "/pipeline", label: "Pipeline" },
   { href: "/outreach", label: "Outreach" },
   { href: "/briefings", label: "Briefings" },
+  { href: "/analytics", label: "Analytics" },
 ];
 
 export function Sidebar() {

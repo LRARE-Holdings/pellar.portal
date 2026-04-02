@@ -79,7 +79,7 @@ export async function runFollowups(): Promise<FollowupResult> {
         lead_id: lead.id,
         direction: "outbound",
         status: "queued",
-        from_address: "hello@pellar.co.uk",
+        from_address: "alex@pellar.co.uk",
         to_address: lead.contact_email,
         subject: draft.subject,
         body_html: draft.body_html,
@@ -92,12 +92,12 @@ export async function runFollowups(): Promise<FollowupResult> {
     // Send via Resend
     try {
       const result = await resend.emails.send({
-        from: "Alex at Pellar <hello@pellar.co.uk>",
+        from: "Alex at Pellar <alex@pellar.co.uk>",
         to: lead.contact_email,
         subject: draft.subject,
         html: draft.body_html,
         text: draft.body_text,
-        replyTo: "hello@inbound.pellar.co.uk",
+        replyTo: "alex@inbound.pellar.co.uk",
         tags: [
           { name: "lead_id", value: lead.id },
           { name: "offering", value: lead.offering || "software" },

@@ -27,7 +27,7 @@ Rules:
 - Tone: direct, warm, human. Like a knowledgeable peer, not a salesperson.
 
 Return a JSON object with "subject", "body_html", and "body_text" fields.
-body_html should use simple HTML (p tags, no inline styles, no images).
-body_text should be the plain text version.
+body_html: use only <p> tags for paragraphs. No inline styles, no images, no wrapper, no signature block. Just the message paragraphs. Do not include a sign-off like "Alex, Pellar" in the HTML — the template adds it.
+body_text: plain text version of the same message, also without sign-off.
 `;
 }

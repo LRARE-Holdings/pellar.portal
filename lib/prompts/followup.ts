@@ -24,6 +24,8 @@ Rules:
 - Do not use buzzwords or em dashes
 
 Return a JSON object with "subject", "body_html", and "body_text" fields.
+body_html: use only <p> tags. No inline styles, no images, no wrapper, no signature. The template adds the sign-off.
+body_text: plain text version without sign-off.
 `;
 }
 
@@ -45,5 +47,7 @@ Rules:
 - Do not use buzzwords or em dashes
 
 Return a JSON object with "subject", "body_html", and "body_text" fields.
+body_html: use only <p> tags. No inline styles, no images, no wrapper, no signature. The template adds the sign-off.
+body_text: plain text version without sign-off.
 `;
 }

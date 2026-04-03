@@ -3,6 +3,7 @@ import * as companiesHouse from "@/lib/clients/companies-house";
 import * as hunter from "@/lib/clients/hunter";
 import { enrichLead } from "@/lib/services/enrichment";
 import { scoreLead } from "@/lib/services/scoring";
+import { estimateDealValue } from "@/lib/services/deal-value";
 import type {
   CompanyCandidate,
   EnrichedLead,
@@ -162,6 +163,7 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
         frustration: lead.frustration,
         notes: lead.notes,
         source: lead.source,
+        deal_value: estimateDealValue(lead.offering, lead.industry, lead.score),
       })
       .select()
       .single();

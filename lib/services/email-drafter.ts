@@ -1,6 +1,7 @@
 import { anthropic } from "@/lib/anthropic";
 import { initialOutreachPrompt } from "@/lib/prompts/outreach";
 import { followup1Prompt, followup2Prompt } from "@/lib/prompts/followup";
+import { wrapInBrandedTemplate, styleParagraphs } from "@/lib/email-template";
 import type { Lead, DraftedEmail, OfferingType } from "@/types";
 import { OFFERING_DESCRIPTIONS } from "@/types";
 
@@ -76,6 +77,11 @@ async function callClaudeForEmail(prompt: string): Promise<DraftedEmail> {
   if (!parsed.subject || !parsed.body_html || !parsed.body_text) {
     throw new Error("Incomplete email draft from Claude");
   }
+
+  // Wrap the raw paragraphs in the branded Pellar email template
+  parsed.body_html = wrapInBrandedTemplate({
+    bodyHtml: styleParagraphs(parsed.body_html),
+  });
 
   return parsed;
 }

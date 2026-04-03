@@ -42,8 +42,32 @@ export function LeadDetailPanel({
     lead.deal_value?.toString() || "",
   );
   const [currentDealValue, setCurrentDealValue] = useState(lead.deal_value);
+  const [expandedEmails, setExpandedEmails] = useState<Set<string>>(() => {
+    if (emails.length === 0) return new Set<string>();
+    return new Set([emails[emails.length - 1].id]);
+  });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  function toggleEmail(emailId: string) {
+    setExpandedEmails((prev) => {
+      const next = new Set(prev);
+      if (next.has(emailId)) {
+        next.delete(emailId);
+      } else {
+        next.add(emailId);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllEmails() {
+    if (expandedEmails.size === emails.length) {
+      setExpandedEmails(new Set());
+    } else {
+      setExpandedEmails(new Set(emails.map((e) => e.id)));
+    }
+  }
 
   async function handleSendOutreach() {
     setSendingOutreach(true);
@@ -340,45 +364,118 @@ export function LeadDetailPanel({
         {/* Column 2: Emails + Briefings */}
         <div className="space-y-5">
           <div className="rounded-lg border border-warm-gray bg-white p-5">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
-              Email History
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
+                Email History
+              </h2>
+              {emails.length > 1 && (
+                <button
+                  onClick={toggleAllEmails}
+                  className="text-[11px] font-medium text-stone hover:text-forest"
+                >
+                  {expandedEmails.size === emails.length
+                    ? "Collapse all"
+                    : "Expand all"}
+                </button>
+              )}
+            </div>
             {emails.length === 0 && (
               <p className="mt-2 text-sm text-stone">No emails yet.</p>
             )}
             <div className="mt-2 space-y-3">
-              {emails.map((email) => (
-                <div
-                  key={email.id}
-                  className={`rounded-md border p-3 ${
-                    email.direction === "inbound"
-                      ? "border-forest/20 bg-light-sage"
-                      : "border-warm-gray bg-cream"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-[0.03em] text-stone">
-                      {email.direction === "outbound" ? "Sent" : "Received"}
-                    </span>
-                    <span className="text-[11px] text-stone">
-                      {new Date(email.created_at).toLocaleString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+              {emails.map((email) => {
+                const isExpanded = expandedEmails.has(email.id);
+                return (
+                  <div
+                    key={email.id}
+                    className={`rounded-md border ${
+                      email.direction === "inbound"
+                        ? "border-forest/20 bg-light-sage"
+                        : "border-warm-gray bg-cream"
+                    }`}
+                  >
+                    <button
+                      onClick={() => toggleEmail(email.id)}
+                      className="flex w-full items-center justify-between p-3 text-left"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-[0.03em] text-stone">
+                            {email.direction === "outbound"
+                              ? "Sent"
+                              : "Received"}
+                          </span>
+                          {email.intent && (
+                            <Badge variant="sage">{email.intent}</Badge>
+                          )}
+                          {email.is_followup && (
+                            <Badge variant="stone">Follow-up</Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 truncate text-sm font-medium text-ink">
+                          {email.subject}
+                        </p>
+                      </div>
+                      <div className="ml-3 flex shrink-0 items-center gap-2">
+                        <span className="text-[11px] text-stone">
+                          {new Date(email.created_at).toLocaleString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <svg
+                          className={`h-4 w-4 text-stone transition-transform ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t border-warm-gray/50 px-3 pb-3 pt-2">
+                        <p className="text-[11px] text-stone">
+                          {email.direction === "outbound" ? "To" : "From"}:{" "}
+                          {email.direction === "outbound"
+                            ? email.to_address
+                            : email.from_address}
+                        </p>
+                        {email.intent_summary && (
+                          <p className="mt-1.5 text-xs text-forest">
+                            {email.intent_summary}
+                          </p>
+                        )}
+                        {email.body_text ? (
+                          <pre className="mt-2 whitespace-pre-wrap font-[family-name:var(--font-dm-sans)] text-sm leading-relaxed text-ink">
+                            {email.body_text}
+                          </pre>
+                        ) : email.body_html ? (
+                          <div
+                            className="mt-2 text-sm leading-relaxed text-ink [&_a]:text-forest [&_a]:underline"
+                            dangerouslySetInnerHTML={{
+                              __html: email.body_html,
+                            }}
+                          />
+                        ) : (
+                          <p className="mt-2 text-sm text-stone">
+                            No content recorded.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="mt-1 text-sm font-medium text-ink">
-                    {email.subject}
-                  </p>
-                  {email.intent && (
-                    <Badge variant="sage" className="mt-1">
-                      {email.intent}
-                    </Badge>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

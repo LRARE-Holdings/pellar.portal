@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resend } from "@/lib/resend";
 import { draftInitialEmail } from "@/lib/services/email-drafter";
+import { wrapInBrandedTemplate, styleParagraphs } from "@/lib/email-template";
 import type { Lead, OutreachResult, ResendEvent } from "@/types";
 
 async function canSendToday(): Promise<boolean> {
@@ -64,7 +65,9 @@ export async function sendOutreachEmail(
 
   if (customSubject && customBody) {
     subject = customSubject;
-    bodyHtml = `<p>${customBody.replace(/\n/g, "</p><p>")}</p>`;
+    bodyHtml = wrapInBrandedTemplate({
+      bodyHtml: styleParagraphs(customBody),
+    });
     bodyText = customBody;
   } else {
     const draft = await draftInitialEmail(typedLead);

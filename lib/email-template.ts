@@ -13,13 +13,10 @@
 interface EmailTemplateOptions {
   /** The HTML body content — <p> tags, <a> tags, etc. */
   bodyHtml: string;
-  /** Sender first name shown in footer. Defaults to "Alex". */
-  senderName?: string;
 }
 
 export function wrapInBrandedTemplate({
   bodyHtml,
-  senderName = "Alex",
 }: EmailTemplateOptions): string {
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -71,21 +68,31 @@ export function wrapInBrandedTemplate({
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Signature (Woodpecker) -->
           <tr>
-            <td style="padding: 24px 40px 32px; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="font-size: 11px; font-weight: 600; letter-spacing: 0.15em; color: #2D5A3D; text-transform: uppercase; padding-bottom: 4px;">
-                    PELLAR
-                  </td>
-                </tr>
-                <tr>
-                  <td style="font-size: 12px; color: #B8B0A8; line-height: 1.5;">
-                    ${senderName} &middot; <a href="https://pellar.co.uk" style="color: #7A9E7E; text-decoration: none;">pellar.co.uk</a>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding: 24px 40px 32px;">
+              <div style="margin: 0 !important; padding: 0 !important; width: 100% !important;">
+                <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; color: #000000; font-size: 13px; line-height: 1.3;">
+                  <tr>
+                    <td>
+                      <div><div style="margin-bottom: 6px;">Best regards</div></div>
+                      <div><div style="font-weight: 700; color: #000000; font-size: 14px;">Alexander Robinson-Wood</div></div>
+                      <div style="margin-top: 6px; padding-bottom: 6px; border-bottom: 1px solid #333333;">
+                        <span>Director</span><span style="margin-left: 8px;">/</span><span style="margin-left: 8px;">Pellar Technologies</span>
+                      </div>
+                      <div style="margin-top: 6px;">
+                        <span>+44 7346 810292</span><span style="margin-left: 10px;"><a href="mailto:alex@pellar.co.uk" style="color: #000000 !important; text-decoration: underline !important; font-size: inherit !important;">alex@pellar.co.uk</a></span>
+                      </div>
+                      <div style="margin-top: 6px;">
+                        <span>The Stamp Exchange, NE1 1SA</span><span style="margin-left: 11px;"><a href="https://pellar.co.uk" style="color: #000000 !important; text-decoration: underline !important; font-size: inherit !important;">pellar.co.uk</a></span>
+                      </div>
+                      <div style="margin-top: 12px; font-size: 0px;">
+                        <a href="https://www.linkedin.com/company/pellartechnologies/" style="margin-right: 10px; font-size: 0px; display: inline-block;"><img src="https://woodpecker.co/cdn-cgi/imagedelivery/dbHg18raJkJAbxhrT08asw/59f9bf1c-000e-471b-3e4d-58386cf6c000/public" width="20" height="20" alt="linkedin" /></a>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
             </td>
           </tr>
 

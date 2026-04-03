@@ -163,7 +163,7 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
         frustration: lead.frustration,
         notes: lead.notes,
         source: lead.source,
-        deal_value: estimateDealValue(lead.offering, lead.industry, lead.score),
+        deal_value: estimateDealValue(lead.offering, lead.industry, lead.score, lead.notes, lead.frustration, lead.website),
       })
       .select()
       .single();

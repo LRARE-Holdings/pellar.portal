@@ -1,35 +1,50 @@
-import type { OfferingType } from "@/types";
-
 /**
- * Estimates a realistic deal value based on what the business can
- * actually afford, not just what we'd like to charge.
+ * Recalculate deal values for all leads using the updated
+ * size-aware estimation logic.
  *
- * Uses company size signals (staff count, director count, multi-site,
- * website presence) to place the business in a size tier, then applies
- * offering and industry adjustments.
+ * Run with: npx tsx scripts/recalculate-deal-values.ts
  */
 
-// --- Size tier definitions ---
-// These represent realistic project budgets for NE England SMEs
+import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
+// Parse .env.local manually (no dotenv dependency)
+function loadEnv(): Record<string, string> {
+  const envPath = resolve(process.cwd(), ".env.local");
+  const contents = readFileSync(envPath, "utf-8");
+  const env: Record<string, string> = {};
+  for (const line of contents.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    const value = trimmed.slice(eqIndex + 1).trim();
+    env[key] = value;
+  }
+  return env;
+}
+
+// Inline the estimation logic (can't import from @/ in scripts easily)
+
+type OfferingType = "software" | "integration" | "ai" | "automation";
 type SizeTier = "micro" | "small" | "medium" | "established";
 
 const TIER_BASE_RANGE: Record<SizeTier, { min: number; max: number }> = {
-  micro: { min: 1500, max: 4000 }, // 1-3 staff, sole trader / single director
-  small: { min: 4000, max: 10000 }, // 4-15 staff, small team
-  medium: { min: 10000, max: 22000 }, // 16-50 staff, proper operations
-  established: { min: 20000, max: 45000 }, // 50+ staff, multi-site, known brand
+  micro: { min: 1500, max: 4000 },
+  small: { min: 4000, max: 10000 },
+  medium: { min: 10000, max: 22000 },
+  established: { min: 20000, max: 45000 },
 };
 
-// Offering type adjusts the midpoint — more complex work costs more
 const OFFERING_MULTIPLIER: Record<OfferingType, number> = {
-  automation: 0.8, // Automating a workflow — usually the simplest engagement
-  integration: 1.0, // Connecting systems — moderate complexity
-  software: 1.15, // Custom software build — higher investment
-  ai: 1.25, // AI implementation — premium positioning
+  automation: 0.8,
+  integration: 1.0,
+  software: 1.15,
+  ai: 1.25,
 };
 
-// Certain industries routinely spend more on tech
 const INDUSTRY_ADJUSTMENT: Record<string, number> = {
   Manufacturing: 1.15,
   Healthcare: 1.15,
@@ -38,12 +53,10 @@ const INDUSTRY_ADJUSTMENT: Record<string, number> = {
   Construction: 1.0,
   Logistics: 1.05,
   Property: 1.0,
-  Technology: 0.7, // Tech companies build in-house or know market rates
-  Hospitality: 0.85, // Tight margins, price-sensitive
+  Technology: 0.7,
+  Hospitality: 0.85,
   "Professional Services": 0.95,
 };
-
-// --- Size detection from notes and frustration text ---
 
 interface SizeSignals {
   employeeCount: number | null;
@@ -61,14 +74,11 @@ function extractSizeSignals(
 ): SizeSignals {
   const text = `${notes || ""} ${frustration || ""}`.toLowerCase();
 
-  // Employee count extraction
   let employeeCount: number | null = null;
-
-  // Look for explicit employee/staff mentions: "60 staff", "50+ vehicles", "200 employees"
   const staffPatterns = [
     /(\d+)\+?\s*(?:staff|employees|people|workers|team members)/,
     /(?:staff|employees|people|team)\s*(?:of\s+)?(?:around\s+|approximately\s+|about\s+)?(\d+)/,
-    /(\d+)\+?\s*(?:vehicles|vans|trucks)/, // Fleet size as proxy
+    /(\d+)\+?\s*(?:vehicles|vans|trucks)/,
   ];
   for (const pattern of staffPatterns) {
     const match = text.match(pattern);
@@ -78,24 +88,18 @@ function extractSizeSignals(
     }
   }
 
-  // Director count from notes
   let directorCount = 0;
   const directorMatch = text.match(/(\d+)\s*(?:active\s+)?directors?/);
   if (directorMatch) {
     directorCount = parseInt(directorMatch[1], 10);
   } else {
-    // Count individual director mentions
-    const directorNames = text.match(
-      /director[s]?:\s*([^.]+)/i,
-    );
+    const directorNames = text.match(/director[s]?:\s*([^.]+)/i);
     if (directorNames) {
       directorCount = (directorNames[1].match(/,/g) || []).length + 1;
     } else {
-      // "Single director" or "sole director"
       if (/single director|sole director|one director/.test(text)) {
         directorCount = 1;
       }
-      // Count "Director:" occurrences in structured notes
       const dirMentions = text.match(/directors?:/gi);
       if (dirMentions && directorCount === 0) {
         directorCount = 1;
@@ -103,19 +107,14 @@ function extractSizeSignals(
     }
   }
 
-  // Multi-site detection — must avoid false positives from addresses and
-  // construction "site projects". Only match genuine multi-location signals.
   const hasMultipleSites =
     /multiple\s+(?:locations?|offices?|branches|restaurants?|shops?|stores?|clinics?|premises)/i.test(text) ||
     /(?:offices|branches|locations|restaurants|shops)\s+(?:in|across)\s+\w+.*?,\s*\w+/i.test(text) ||
     /restaurants?\s+in\s+\w+.*?,\s*\w+/i.test(text);
 
-  // Part of larger organisation — "group" alone is too broad (catches
-  // "restaurant group", "hotel group"). Require corporate context.
   const isPartOfLargerOrg =
     /part of|subsidiary|division of|arm of|(?:group\s+(?:ltd|limited|plc|inc))|plc\b|holdings/i.test(text);
 
-  // Revenue hints
   let revenueHints: "low" | "mid" | "high" | null = null;
   if (
     /crown commercial|government supplier|ccs supplier|nhs supplier/i.test(text)
@@ -141,7 +140,6 @@ function extractSizeSignals(
 }
 
 function classifyTier(signals: SizeSignals): SizeTier {
-  // Explicit employee count is the strongest signal
   if (signals.employeeCount !== null) {
     if (signals.employeeCount >= 50) return "established";
     if (signals.employeeCount >= 15) return "medium";
@@ -149,57 +147,111 @@ function classifyTier(signals: SizeSignals): SizeTier {
     return "micro";
   }
 
-  // Multi-site or part of larger org = at least medium
   if (signals.isPartOfLargerOrg) return "established";
   if (signals.hasMultipleSites) return "medium";
 
-  // Director count as proxy
   if (signals.directorCount >= 5) return "medium";
   if (signals.directorCount >= 3) return "small";
 
-  // Revenue hints
   if (signals.revenueHints === "high") return "established";
   if (signals.revenueHints === "mid") return "medium";
   if (signals.revenueHints === "low") return "micro";
 
-  // Single director, no website = likely micro
   if (signals.directorCount <= 1 && !signals.hasWebsite) return "micro";
-
-  // Single director with website = small
   if (signals.directorCount <= 1) return "small";
 
-  // Default: small
   return "small";
 }
 
-export function estimateDealValue(
+function estimateDealValue(
   offering: OfferingType | null,
   industry: string,
   score: number,
-  notes?: string | null,
-  frustration?: string | null,
-  website?: string | null,
+  notes: string | null,
+  frustration: string | null,
+  website: string | null,
 ): number {
-  const signals = extractSizeSignals(
-    notes || null,
-    frustration || null,
-    website || null,
-  );
+  const signals = extractSizeSignals(notes, frustration, website);
   const tier = classifyTier(signals);
   const range = TIER_BASE_RANGE[tier];
 
-  // Score positions within the tier range (higher score = higher end)
   const scorePosition = Math.max(0, Math.min(1, (score - 30) / 60));
   const baseMidpoint = range.min + (range.max - range.min) * scorePosition;
 
-  // Apply offering multiplier
-  const offeringMul = OFFERING_MULTIPLIER[offering || "software"];
-
-  // Apply industry adjustment
+  const offeringMul = OFFERING_MULTIPLIER[(offering as OfferingType) || "software"];
   const industryMul = INDUSTRY_ADJUSTMENT[industry] || 1.0;
 
   const raw = baseMidpoint * offeringMul * industryMul;
-
-  // Round to nearest 500
   return Math.round(raw / 500) * 500;
 }
+
+async function main() {
+  const env = loadEnv();
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
+    process.exit(1);
+  }
+
+  const supabase = createClient(url, key);
+
+  const { data: leads, error } = await supabase
+    .from("leads")
+    .select("id, company, offering, industry, score, deal_value, notes, frustration, website")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch leads:", error.message);
+    process.exit(1);
+  }
+
+  console.log(`Found ${leads.length} leads to recalculate\n`);
+  console.log("Company".padEnd(45), "Old".padStart(8), "New".padStart(8), "Tier".padStart(14));
+  console.log("-".repeat(80));
+
+  let updated = 0;
+
+  for (const lead of leads) {
+    const signals = extractSizeSignals(lead.notes, lead.frustration, lead.website);
+    const tier = classifyTier(signals);
+    const newValue = estimateDealValue(
+      lead.offering,
+      lead.industry,
+      lead.score,
+      lead.notes,
+      lead.frustration,
+      lead.website,
+    );
+
+    const oldStr = lead.deal_value != null ? `${lead.deal_value.toLocaleString()}` : "—";
+    const newStr = `${newValue.toLocaleString()}`;
+    const changed = lead.deal_value !== newValue;
+
+    console.log(
+      lead.company.padEnd(45),
+      oldStr.padStart(8),
+      newStr.padStart(8),
+      tier.padStart(14),
+      changed ? " *" : "",
+    );
+
+    if (changed) {
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({ deal_value: newValue })
+        .eq("id", lead.id);
+
+      if (updateError) {
+        console.error(`  Failed to update ${lead.company}:`, updateError.message);
+      } else {
+        updated++;
+      }
+    }
+  }
+
+  console.log(`\nDone. Updated ${updated} of ${leads.length} leads.`);
+}
+
+main();

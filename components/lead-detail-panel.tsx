@@ -11,6 +11,7 @@ import {
   triggerBriefing,
   scheduleMeetingAction,
   updateDealValue,
+  findLeadEmail,
 } from "@/app/(portal)/leads/[id]/actions";
 import type { Lead, Email, Briefing, ActivityLogEntry, Meeting } from "@/types";
 
@@ -30,6 +31,8 @@ export function LeadDetailPanel({
   meetings,
 }: LeadDetailPanelProps) {
   const [sendingOutreach, setSendingOutreach] = useState(false);
+  const [findingEmail, setFindingEmail] = useState(false);
+  const [leadEmail, setLeadEmail] = useState(lead.contact_email);
   const [generatingBriefing, setGeneratingBriefing] = useState(false);
   const [schedulingMeeting, setSchedulingMeeting] = useState(false);
   const [showMeetingForm, setShowMeetingForm] = useState(false);
@@ -80,6 +83,23 @@ export function LeadDetailPanel({
       setError(err instanceof Error ? err.message : "Failed to send outreach");
     } finally {
       setSendingOutreach(false);
+    }
+  }
+
+  async function handleFindEmail() {
+    setFindingEmail(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await findLeadEmail(lead.id);
+      if (result) {
+        setLeadEmail(result.email);
+        setSuccess(`Found email: ${result.email} (${result.score}% confidence)`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to find email");
+    } finally {
+      setFindingEmail(false);
     }
   }
 
@@ -138,7 +158,7 @@ export function LeadDetailPanel({
   }
 
   const canScheduleMeeting =
-    lead.contact_email &&
+    leadEmail &&
     ["responded", "scoping_call", "proposal"].includes(lead.stage);
 
   return (
@@ -149,7 +169,7 @@ export function LeadDetailPanel({
           <h1 className="text-[28px] font-normal text-ink">{lead.company}</h1>
           <p className="mt-1 text-sm text-stone">
             {lead.contact_name}
-            {lead.contact_email && ` · ${lead.contact_email}`}
+            {leadEmail && ` · ${leadEmail}`}
           </p>
           <p className="mt-0.5 text-sm text-stone">
             {lead.industry} · {lead.location}
@@ -163,13 +183,22 @@ export function LeadDetailPanel({
 
       {/* Actions */}
       <div className="mt-4 flex gap-2">
-        {lead.contact_email && lead.stage === "identified" && (
+        {leadEmail && lead.stage === "identified" && (
           <Button
             onClick={handleSendOutreach}
             disabled={sendingOutreach}
             size="sm"
           >
             {sendingOutreach ? "Sending..." : "Send Outreach"}
+          </Button>
+        )}
+        {!leadEmail && lead.stage === "identified" && (
+          <Button
+            onClick={handleFindEmail}
+            disabled={findingEmail}
+            size="sm"
+          >
+            {findingEmail ? "Looking up..." : "Find Email"}
           </Button>
         )}
         <Button

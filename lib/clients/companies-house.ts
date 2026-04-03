@@ -56,7 +56,7 @@ export async function search(
 ): Promise<SearchResult[]> {
   const results: SearchResult[] = [];
 
-  const searchUrl = `${BASE_URL}/advanced-search/companies?location=${params.postcodeArea}&company_status=${params.status}&incorporated_from=${params.incorporatedAfter}&size=50`;
+  const searchUrl = `${BASE_URL}/advanced-search/companies?location=${params.postcodeArea}&company_status=${params.status}&incorporated_from=${params.incorporatedAfter}&size=100`;
 
   const response = await fetch(searchUrl, {
     headers: { Authorization: getAuthHeader() },
@@ -70,6 +70,12 @@ export async function search(
   const items = data.items || [];
 
   for (const company of items) {
+    // Verify postcode actually starts with the target area code
+    const address = company.registered_office_address;
+    const postcode = (address.postal_code || "").toUpperCase().replace(/\s+/g, "");
+    const targetPrefix = params.postcodeArea.toUpperCase();
+    if (!postcode.startsWith(targetPrefix)) continue;
+
     const companySicCodes = company.sic_codes || [];
     const matchesSector = companySicCodes.some((sic) =>
       params.sicCodes.some((target) => sic.startsWith(target)),
@@ -77,7 +83,6 @@ export async function search(
 
     if (!matchesSector) continue;
 
-    const address = company.registered_office_address;
     const location = [address.locality, address.region]
       .filter(Boolean)
       .join(", ");

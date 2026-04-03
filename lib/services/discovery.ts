@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import * as companiesHouse from "@/lib/clients/companies-house";
+import * as hunter from "@/lib/clients/hunter";
 import { enrichLead } from "@/lib/services/enrichment";
 import { scoreLead } from "@/lib/services/scoring";
 import type {
@@ -7,7 +8,10 @@ import type {
   EnrichedLead,
   Lead,
   DiscoveryResult,
+  ScoredLead,
 } from "@/types";
+
+const HUNTER_SCORE_THRESHOLD = 70;
 
 const SECTOR_SCHEDULE: Record<number, string[]> = {
   1: ["Manufacturing", "Construction"],
@@ -109,7 +113,38 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
   // 5. Take top 10
   const topLeads = scored.slice(0, 10);
 
-  // 6. Insert into Supabase
+  // 6. Hunter email lookup for high-scoring leads without a verified email
+  for (const lead of topLeads) {
+    if (lead.contactEmail) continue; // Already have an email
+    if (lead.score < HUNTER_SCORE_THRESHOLD) continue;
+    if (!lead.website || lead.contactName === "Unknown") continue;
+
+    try {
+      const domain = new URL(
+        lead.website.startsWith("http") ? lead.website : `https://${lead.website}`,
+      ).hostname.replace(/^www\./, "");
+
+      const nameParts = lead.contactName.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      if (!firstName || !lastName) continue;
+
+      const result = await hunter.findEmail({ domain, firstName, lastName });
+      if (result && result.score >= 70) {
+        lead.contactEmail = result.email;
+        // Re-score since having an email adds 20 points
+        const rescored = scoreLead(lead as EnrichedLead);
+        (lead as ScoredLead).score = rescored.score;
+      }
+    } catch (err) {
+      errors.push(
+        `Hunter lookup failed for ${lead.company}: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  // 7. Insert into Supabase
   const inserted: Lead[] = [];
   for (const lead of topLeads) {
     const { data } = await supabaseAdmin

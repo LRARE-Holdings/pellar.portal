@@ -10,6 +10,7 @@ const statusVariant: Record<
   string,
   "default" | "forest" | "sage" | "stone" | "warning" | "danger"
 > = {
+  pending_review: "warning",
   queued: "default",
   sent: "sage",
   delivered: "forest",

@@ -1,29 +1,55 @@
 import { createClient } from "@/lib/supabase/server";
 import { EmailFeed } from "@/components/email-feed";
+import { OutreachReviewQueue } from "@/components/outreach-review-queue";
 import { StatCard } from "@/components/stat-card";
 import { DeliveryHealthPanel } from "@/components/delivery-health-panel";
+import { Badge } from "@/components/ui/badge";
 import type { EmailStats, EmailDeliveryHealth, Email } from "@/types";
 
 export default async function OutreachPage() {
   const supabase = await createClient();
 
-  const [statsResult, healthResult, emailsResult] = await Promise.all([
-    supabase.from("email_stats").select("*").single(),
-    supabase.from("email_delivery_health").select("*").single(),
-    supabase
-      .from("emails")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50),
-  ]);
+  const [statsResult, healthResult, emailsResult, pendingResult] =
+    await Promise.all([
+      supabase.from("email_stats").select("*").single(),
+      supabase.from("email_delivery_health").select("*").single(),
+      supabase
+        .from("emails")
+        .select("*")
+        .neq("status", "pending_review")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("emails")
+        .select("*, leads(company, contact_name)")
+        .eq("status", "pending_review")
+        .order("created_at", { ascending: false }),
+    ]);
 
   const stats = (statsResult.data || {}) as EmailStats;
   const health = (healthResult.data || {}) as EmailDeliveryHealth;
   const emails = (emailsResult.data || []) as Email[];
+  const pendingEmails = (pendingResult.data || []) as Array<
+    Email & { leads: { company: string; contact_name: string } | null }
+  >;
 
   return (
     <div>
       <h1 className="text-[28px] font-normal text-ink">Outreach</h1>
+
+      {pendingEmails.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
+              Pending Review
+            </h2>
+            <Badge variant="warning">{pendingEmails.length}</Badge>
+          </div>
+          <div className="mt-3">
+            <OutreachReviewQueue emails={pendingEmails} />
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Left column: stats + delivery health */}

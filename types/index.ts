@@ -14,6 +14,7 @@ export type OfferingType = "software" | "integration" | "ai" | "automation";
 export type EmailDirection = "outbound" | "inbound";
 
 export type EmailStatus =
+  | "pending_review"
   | "queued"
   | "sent"
   | "delivered"

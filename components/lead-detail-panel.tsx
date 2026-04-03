@@ -92,12 +92,14 @@ export function LeadDetailPanel({
     setSuccess(null);
     try {
       const result = await findLeadEmail(lead.id);
-      if (result) {
+      if ("error" in result) {
+        setError(result.error);
+      } else {
         setLeadEmail(result.email);
         setSuccess(`Found email: ${result.email} (${result.score}% confidence)`);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to find email");
+    } catch {
+      setError("Failed to find email");
     } finally {
       setFindingEmail(false);
     }

@@ -31,6 +31,12 @@ export async function runAutoOutreach(): Promise<AutoOutreachResult> {
   let sent = 0;
   let failed = 0;
 
+  // 0. Weekdays only — no cold emails on Saturday or Sunday
+  const day = new Date().getUTCDay();
+  if (day === 0 || day === 6) {
+    return { sent: 0, failed: 0, skipped: 0, errors: [] };
+  }
+
   // 1. Check remaining daily budget
   const sentToday = await getSentTodayCount();
   const remaining = DAILY_LIMIT - sentToday;

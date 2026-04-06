@@ -112,7 +112,7 @@ export default async function DashboardPage() {
       <h1 className="text-[28px] font-normal text-ink">Dashboard</h1>
 
       {/* Row 1: Stat cards */}
-      <div className="mt-5 grid grid-cols-4 gap-3 xl:grid-cols-6 3xl:grid-cols-8">
+      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6 3xl:grid-cols-8">
         <StatCard label="Total Leads" value={stats.total_leads || 0} />
         <StatCard label="Active Pipeline" value={activePipeline} />
         <StatCard

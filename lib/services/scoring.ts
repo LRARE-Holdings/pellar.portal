@@ -57,7 +57,7 @@ export function scoreLead(lead: EnrichedLead): ScoredLead {
     if (lead.estimatedEmployees >= 10 && lead.estimatedEmployees <= 50) {
       score += 15;
     } else if (
-      lead.estimatedEmployees >= 5 ||
+      lead.estimatedEmployees >= 5 &&
       lead.estimatedEmployees <= 100
     ) {
       score += 10;

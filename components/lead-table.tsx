@@ -14,10 +14,12 @@ export function LeadTable({ leads }: LeadTableProps) {
   const [stageFilter, setStageFilter] = useState<LeadStage | "all">("all");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [qualifiedOnly, setQualifiedOnly] = useState(true);
 
   const industries = Array.from(new Set(leads.map((l) => l.industry))).sort();
 
   const filtered = leads.filter((lead) => {
+    if (qualifiedOnly && lead.score < 50) return false;
     if (stageFilter !== "all" && lead.stage !== stageFilter) return false;
     if (industryFilter !== "all" && lead.industry !== industryFilter)
       return false;
@@ -32,13 +34,13 @@ export function LeadTable({ leads }: LeadTableProps) {
 
   return (
     <div>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <input
           type="text"
           placeholder="Search companies or contacts..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-64 rounded-lg border border-warm-gray bg-white px-3 py-2 text-sm text-ink placeholder:text-stone focus:border-forest focus:outline-none"
+          className="w-full rounded-lg border border-warm-gray bg-white px-3 py-2 text-sm text-ink placeholder:text-stone focus:border-forest focus:outline-none md:w-64"
         />
         <select
           value={stageFilter}
@@ -66,10 +68,20 @@ export function LeadTable({ leads }: LeadTableProps) {
             </option>
           ))}
         </select>
+        <button
+          onClick={() => setQualifiedOnly(!qualifiedOnly)}
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            qualifiedOnly
+              ? "border-forest bg-light-sage text-forest"
+              : "border-warm-gray bg-white text-stone hover:text-ink"
+          }`}
+        >
+          Qualified only
+        </button>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-warm-gray bg-white">
-        <table className="w-full">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-warm-gray bg-white">
+        <table className="w-full min-w-[700px]">
           <thead>
             <tr className="bg-cream">
               <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-stone">

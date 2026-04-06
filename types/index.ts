@@ -37,7 +37,8 @@ export type ActivityType =
   | "briefing_generated"
   | "followup_sent"
   | "note_added"
-  | "lead_scored";
+  | "lead_scored"
+  | "email_found";
 
 // Database row types
 
@@ -59,6 +60,15 @@ export interface Lead {
   followup_count: number;
   stale: boolean;
   deal_value: number | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  social_links: Record<string, string> | null;
+  google_rating: number | null;
+  google_reviews: number | null;
+  estimated_revenue: string | null;
+  estimated_employees: number | null;
+  company_age_years: number | null;
+  company_number: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -174,10 +184,18 @@ export interface EnrichedLead {
   offering: OfferingType;
   source: string;
   notes: string | null;
-  websiteLooksOutdated?: boolean;
-  estimatedEmployees?: number;
-  frustrationScore?: number;
-  recencyScore?: number;
+  websiteLooksOutdated: boolean;
+  estimatedEmployees: number;
+  frustrationScore: number;
+  recencyScore: number;
+  phone: string | null;
+  linkedinUrl: string | null;
+  socialLinks: Record<string, string>;
+  googleRating: number | null;
+  googleReviews: number | null;
+  estimatedRevenue: string | null;
+  companyAgeYears: number | null;
+  companyNumber: string;
 }
 
 export interface ScoredLead extends EnrichedLead {

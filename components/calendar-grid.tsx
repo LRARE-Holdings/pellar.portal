@@ -107,7 +107,8 @@ export function CalendarGrid({
         </button>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-lg border border-warm-gray bg-white">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-warm-gray bg-white">
+        <div className="min-w-[700px]">
         <div className="grid grid-cols-7 bg-cream">
           {DAY_NAMES.map((name) => (
             <div
@@ -210,9 +211,10 @@ export function CalendarGrid({
             );
           })}
         </div>
+        </div>
       </div>
 
-      <div className="mt-2 flex gap-4">
+      <div className="mt-2 flex flex-wrap gap-4">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded bg-light-sage" />
           <span className="text-[11px] text-stone">Today</span>

@@ -8,7 +8,9 @@ export default function PortalLayout({
   return (
     <div className="flex h-full">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-cream p-8">{children}</main>
+      <main className="flex-1 overflow-y-auto bg-cream p-4 pt-18 md:p-8 md:pt-8">
+        {children}
+      </main>
     </div>
   );
 }

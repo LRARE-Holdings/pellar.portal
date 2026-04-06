@@ -36,7 +36,7 @@ export default async function PipelinePage() {
     <div>
       <h1 className="text-[28px] font-normal text-ink">Pipeline</h1>
 
-      <div className="mt-5 grid grid-cols-3 gap-3 xl:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         <StatCard label="Total Leads" value={totalLeadCount} />
         <StatCard label="Pipeline Value" value={formatGBP(totalPipeline)} />
         <StatCard

@@ -13,14 +13,25 @@ import type {
 } from "@/types";
 
 const HUNTER_SCORE_THRESHOLD = 70;
+const TARGET_LEADS = 100;
+const ENRICHMENT_POOL_SIZE = 250;
+const QUALIFICATION_THRESHOLD = 50;
+const ENRICHMENT_BATCH_SIZE = 10;
 
-const SECTOR_SCHEDULE: Record<number, string[]> = {
-  1: ["Manufacturing", "Construction"],
-  2: ["Legal", "Financial Services"],
-  3: ["Healthcare", "Professional Services"],
-  4: ["Property", "Hospitality"],
-  5: ["Logistics", "Retail", "Technology"],
-};
+// Run all sectors every day — no day-of-week rotation
+const ALL_SECTORS = [
+  "Manufacturing",
+  "Construction",
+  "Legal",
+  "Financial Services",
+  "Healthcare",
+  "Professional Services",
+  "Property",
+  "Hospitality",
+  "Logistics",
+  "Retail",
+  "Technology",
+];
 
 const SECTOR_SIC_CODES: Record<string, string[]> = {
   Manufacturing: [
@@ -40,45 +51,113 @@ const SECTOR_SIC_CODES: Record<string, string[]> = {
   Technology: ["62", "63"],
 };
 
-function getTodaysSectors(): string[] {
-  const day = new Date().getDay();
-  return SECTOR_SCHEDULE[day] || [];
+// Map postcode areas to place names for the Companies House location search.
+// The API does free-text matching on addresses so "NE" alone matches
+// "Ne Lincolnshire", "Newbury" etc. Using the city/town name gets far
+// better precision (100% vs 12% correct postcode matches).
+const NE_LOCATIONS: Array<{ query: string; postcodePrefix: string }> = [
+  { query: "Newcastle upon Tyne", postcodePrefix: "NE" },
+  { query: "Durham", postcodePrefix: "DH" },
+  { query: "Sunderland", postcodePrefix: "SR" },
+  { query: "Middlesbrough", postcodePrefix: "TS" },
+  { query: "Darlington", postcodePrefix: "DL" },
+];
+const WIDER_LOCATIONS: Array<{ query: string; postcodePrefix: string }> = [
+  { query: "York", postcodePrefix: "YO" },
+  { query: "Harrogate", postcodePrefix: "HG" },
+  { query: "Carlisle", postcodePrefix: "CA" },
+  { query: "Lancaster", postcodePrefix: "LA" },
+];
+const MIN_CANDIDATES_BEFORE_EXPANSION = 200;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function runDiscovery(): Promise<DiscoveryResult> {
-  const sectors = getTodaysSectors();
-  if (sectors.length === 0) {
-    return { discovered: 0, leads: [], skipped: 0, errors: [] };
-  }
-
-  const errors: string[] = [];
-
-  // 1. Query Companies House for each sector
+async function searchAllSectors(
+  locations: Array<{ query: string; postcodePrefix: string }>,
+  errors: string[],
+): Promise<CompanyCandidate[]> {
   const candidates: CompanyCandidate[] = [];
-  for (const sector of sectors) {
+
+  for (const sector of ALL_SECTORS) {
     const sicCodes = SECTOR_SIC_CODES[sector];
     if (!sicCodes) continue;
 
-    for (const postcodeArea of ["NE", "DH", "SR", "TS", "DL"]) {
+    for (const loc of locations) {
       try {
         const results = await companiesHouse.search({
           sicCodes,
-          postcodeArea,
+          postcodeArea: loc.postcodePrefix,
+          locationQuery: loc.query,
           status: "active",
           incorporatedAfter: "2015-01-01",
+          maxResults: 500,
         });
         candidates.push(
           ...results.map((r) => ({ ...r, industry: sector })),
         );
       } catch (err) {
         errors.push(
-          `Companies House search failed for ${sector}/${postcodeArea}: ${err instanceof Error ? err.message : "Unknown error"}`,
+          `Companies House search failed for ${sector}/${loc.query}: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
       }
     }
+
+    // Rate limiting between sector batches
+    await delay(200);
   }
 
-  // 2. Dedup against existing leads
+  return candidates;
+}
+
+async function enrichBatch(
+  candidates: CompanyCandidate[],
+  errors: string[],
+): Promise<EnrichedLead[]> {
+  const enriched: EnrichedLead[] = [];
+
+  // Process in batches for parallelism
+  for (let i = 0; i < candidates.length; i += ENRICHMENT_BATCH_SIZE) {
+    const batch = candidates.slice(i, i + ENRICHMENT_BATCH_SIZE);
+
+    const results = await Promise.allSettled(
+      batch.map((candidate) => enrichLead(candidate)),
+    );
+
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j];
+      if (result.status === "fulfilled" && result.value) {
+        enriched.push(result.value);
+      } else if (result.status === "rejected") {
+        errors.push(
+          `Enrichment failed for ${batch[j].name}: ${result.reason instanceof Error ? result.reason.message : "Unknown error"}`,
+        );
+      }
+    }
+
+    // Brief pause between batches to respect API limits
+    if (i + ENRICHMENT_BATCH_SIZE < candidates.length) {
+      await delay(100);
+    }
+  }
+
+  return enriched;
+}
+
+export async function runDiscovery(): Promise<DiscoveryResult> {
+  const errors: string[] = [];
+
+  // 1. Search Companies House across all sectors, NE locations first
+  let candidates = await searchAllSectors(NE_LOCATIONS, errors);
+
+  // 2. Expand to wider geography if NE is thin
+  if (candidates.length < MIN_CANDIDATES_BEFORE_EXPANSION) {
+    const widerCandidates = await searchAllSectors(WIDER_LOCATIONS, errors);
+    candidates = [...candidates, ...widerCandidates];
+  }
+
+  // 3. Dedup against existing leads
   const { data: existing } = await supabaseAdmin
     .from("leads")
     .select("company, location");
@@ -95,34 +174,28 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
       !existingSet.has(`${c.name.toLowerCase()}|${c.location.toLowerCase()}`),
   );
 
-  // 3. Enrich candidates (process more than 10 to allow filtering)
-  const enriched: EnrichedLead[] = [];
-  for (const candidate of fresh.slice(0, 30)) {
-    try {
-      const lead = await enrichLead(candidate);
-      if (lead) enriched.push(lead);
-    } catch (err) {
-      errors.push(
-        `Enrichment failed for ${candidate.name}: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
-    }
-  }
+  // 4. Enrich candidates in parallel batches
+  const toEnrich = fresh.slice(0, ENRICHMENT_POOL_SIZE);
+  const enriched = await enrichBatch(toEnrich, errors);
 
-  // 4. Score and rank
+  // 5. Score and rank
   const scored = enriched.map(scoreLead).sort((a, b) => b.score - a.score);
 
-  // 5. Take top 10
-  const topLeads = scored.slice(0, 10);
+  // 6. Filter by qualification threshold and take top TARGET_LEADS
+  const qualified = scored.filter((s) => s.score >= QUALIFICATION_THRESHOLD);
+  const topLeads = qualified.slice(0, TARGET_LEADS);
 
-  // 6. Hunter email lookup for high-scoring leads without a verified email
+  // 7. Hunter email lookup for high-scoring leads without a verified email
   for (const lead of topLeads) {
-    if (lead.contactEmail) continue; // Already have an email
+    if (lead.contactEmail) continue;
     if (lead.score < HUNTER_SCORE_THRESHOLD) continue;
     if (!lead.website || lead.contactName === "Unknown") continue;
 
     try {
       const domain = new URL(
-        lead.website.startsWith("http") ? lead.website : `https://${lead.website}`,
+        lead.website.startsWith("http")
+          ? lead.website
+          : `https://${lead.website}`,
       ).hostname.replace(/^www\./, "");
 
       const nameParts = lead.contactName.split(" ");
@@ -134,7 +207,6 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
       const result = await hunter.findEmail({ domain, firstName, lastName });
       if (result && result.score >= 70) {
         lead.contactEmail = result.email;
-        // Re-score since having an email adds 20 points
         const rescored = scoreLead(lead as EnrichedLead);
         (lead as ScoredLead).score = rescored.score;
       }
@@ -145,7 +217,7 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
     }
   }
 
-  // 7. Insert into Supabase
+  // 8. Insert into Supabase
   const inserted: Lead[] = [];
   for (const lead of topLeads) {
     const { data } = await supabaseAdmin
@@ -163,7 +235,23 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
         frustration: lead.frustration,
         notes: lead.notes,
         source: lead.source,
-        deal_value: estimateDealValue(lead.offering, lead.industry, lead.score, lead.notes, lead.frustration, lead.website),
+        deal_value: estimateDealValue(
+          lead.offering,
+          lead.industry,
+          lead.score,
+          lead.notes,
+          lead.frustration,
+          lead.website,
+        ),
+        phone: lead.phone,
+        linkedin_url: lead.linkedinUrl,
+        social_links: lead.socialLinks,
+        google_rating: lead.googleRating,
+        google_reviews: lead.googleReviews,
+        estimated_revenue: lead.estimatedRevenue,
+        estimated_employees: lead.estimatedEmployees,
+        company_age_years: lead.companyAgeYears,
+        company_number: lead.companyNumber,
       })
       .select()
       .single();
@@ -172,7 +260,7 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
       await supabaseAdmin.from("activity_log").insert({
         lead_id: data.id,
         type: "lead_created",
-        description: `Discovered ${data.company} via ${lead.source}`,
+        description: `Discovered ${data.company} via ${lead.source} (score: ${lead.score})`,
       });
       inserted.push(data as Lead);
     }

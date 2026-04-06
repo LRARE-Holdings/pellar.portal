@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +20,24 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -26,13 +45,33 @@ export function Sidebar() {
     router.refresh();
   }
 
-  return (
-    <aside className="flex h-full w-[220px] shrink-0 flex-col bg-ink">
-      <div className="px-5 pt-6 pb-8">
-        <h1 className="text-sm font-semibold uppercase tracking-[0.15em] text-white">
-          PELLAR
-        </h1>
-        <p className="mt-0.5 text-[11px] font-medium text-stone">Portal</p>
+  const sidebarContent = (
+    <>
+      <div className="flex items-center justify-between px-5 pt-6 pb-8">
+        <div>
+          <h1 className="text-sm font-semibold uppercase tracking-[0.15em] text-white">
+            PELLAR
+          </h1>
+          <p className="mt-0.5 text-[11px] font-medium text-stone">Portal</p>
+        </div>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-stone hover:text-white md:hidden"
+          aria-label="Close menu"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
+            <line x1="4" y1="4" x2="14" y2="14" />
+            <line x1="14" y1="4" x2="4" y2="14" />
+          </svg>
+        </button>
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 px-3">
@@ -63,6 +102,54 @@ export function Sidebar() {
           Sign out
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden h-full w-[220px] shrink-0 flex-col bg-ink md:flex">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay sidebar */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative flex h-full w-[260px] flex-col bg-ink shadow-xl">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Mobile header bar */}
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center border-b border-warm-gray bg-cream px-4 md:hidden">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-md text-ink hover:bg-warm-gray"
+          aria-label="Open menu"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
+            <line x1="3" y1="5" x2="17" y2="5" />
+            <line x1="3" y1="10" x2="17" y2="10" />
+            <line x1="3" y1="15" x2="17" y2="15" />
+          </svg>
+        </button>
+        <span className="ml-3 text-xs font-semibold uppercase tracking-[0.15em] text-ink">
+          PELLAR
+        </span>
+      </div>
+    </>
   );
 }

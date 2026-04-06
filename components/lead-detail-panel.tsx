@@ -184,7 +184,7 @@ export function LeadDetailPanel({
       </div>
 
       {/* Actions */}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         {leadEmail && lead.stage === "identified" && (
           <Button
             onClick={handleSendOutreach}
@@ -231,7 +231,7 @@ export function LeadDetailPanel({
           <h3 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
             Schedule Meeting
           </h3>
-          <div className="mt-3 grid grid-cols-3 gap-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-[11px] font-medium text-stone">
                 Date

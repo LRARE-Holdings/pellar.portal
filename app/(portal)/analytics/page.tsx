@@ -88,7 +88,7 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="mt-6 grid grid-cols-3 gap-3 xl:grid-cols-6">
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Total Leads" value={totalLeads} />
         <StatCard label="This Week" value={thisWeek?.leads_discovered || 0} />
         <StatCard label="Response Rate" value={`${overallResponseRate}%`} />
@@ -113,8 +113,8 @@ export default async function AnalyticsPage() {
           <WeeklyChart trends={trends} />
         </div>
 
-        <div className="mt-3 overflow-hidden rounded-lg border border-warm-gray bg-white">
-          <table className="w-full">
+        <div className="mt-3 overflow-x-auto rounded-lg border border-warm-gray bg-white">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="bg-cream">
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-stone">

@@ -19,13 +19,19 @@ export function scoreLead(lead: EnrichedLead): ScoredLead {
     score += 3;
   }
 
-  // Industry fit (15 points)
-  const HIGH_FIT = ["Manufacturing", "Legal", "Healthcare", "Construction"];
+  // Industry fit (15 points) — professional services focus
+  const HIGH_FIT = [
+    "Legal",
+    "Accountancy",
+    "Financial Advisory",
+    "Estate Agency",
+    "Insurance Broking",
+  ];
   const MED_FIT = [
-    "Financial Services",
-    "Property",
-    "Logistics",
-    "Professional Services",
+    "Architecture & Engineering",
+    "Recruitment",
+    "Management Consultancy",
+    "Surveying",
   ];
   if (HIGH_FIT.includes(lead.industry)) {
     score += 15;

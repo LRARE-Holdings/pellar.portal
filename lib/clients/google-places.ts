@@ -1,4 +1,7 @@
-const BASE_URL = "https://maps.googleapis.com/maps/api/place";
+// Google Places API (New) — uses the v1 REST endpoint
+// Docs: https://developers.google.com/maps/documentation/places/web-service/text-search
+
+const BASE_URL = "https://places.googleapis.com/v1/places";
 
 interface PlaceResult {
   name: string;
@@ -9,19 +12,17 @@ interface PlaceResult {
   reviewCount: number | null;
 }
 
-interface PlaceSearchResult {
-  place_id: string;
-  name: string;
-  formatted_address?: string;
-}
-
-interface PlaceDetailsResult {
-  name: string;
-  formatted_address?: string;
-  website?: string;
-  formatted_phone_number?: string;
-  rating?: number;
-  user_ratings_total?: number;
+interface NewPlaceSearchResponse {
+  places?: Array<{
+    id: string;
+    displayName?: { text: string };
+    formattedAddress?: string;
+    websiteUri?: string;
+    nationalPhoneNumber?: string;
+    internationalPhoneNumber?: string;
+    rating?: number;
+    userRatingCount?: number;
+  }>;
 }
 
 export async function findBusiness(params: {
@@ -31,34 +32,38 @@ export async function findBusiness(params: {
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (!key) return null;
 
-  const searchUrl = `${BASE_URL}/textsearch/json?query=${encodeURIComponent(params.query)}&region=${params.region}&key=${key}`;
+  try {
+    // Text Search (New) — single request that returns all fields
+    const response = await fetch(`${BASE_URL}:searchText`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,places.rating,places.userRatingCount",
+      },
+      body: JSON.stringify({
+        textQuery: params.query,
+        regionCode: params.region.toUpperCase(),
+        maxResultCount: 1,
+      }),
+    });
 
-  const searchResponse = await fetch(searchUrl);
-  if (!searchResponse.ok) return null;
+    if (!response.ok) return null;
 
-  const searchData = (await searchResponse.json()) as {
-    results?: PlaceSearchResult[];
-  };
-  const firstResult = searchData.results?.[0];
-  if (!firstResult) return null;
+    const data = (await response.json()) as NewPlaceSearchResponse;
+    const place = data.places?.[0];
+    if (!place) return null;
 
-  const detailsUrl = `${BASE_URL}/details/json?place_id=${firstResult.place_id}&fields=name,formatted_address,website,formatted_phone_number,rating,user_ratings_total&key=${key}`;
-
-  const detailsResponse = await fetch(detailsUrl);
-  if (!detailsResponse.ok) return null;
-
-  const detailsData = (await detailsResponse.json()) as {
-    result?: PlaceDetailsResult;
-  };
-  const details = detailsData.result;
-  if (!details) return null;
-
-  return {
-    name: details.name,
-    address: details.formatted_address || "",
-    website: details.website || null,
-    phone: details.formatted_phone_number || null,
-    rating: details.rating || null,
-    reviewCount: details.user_ratings_total || null,
-  };
+    return {
+      name: place.displayName?.text || "",
+      address: place.formattedAddress || "",
+      website: place.websiteUri || null,
+      phone: place.nationalPhoneNumber || place.internationalPhoneNumber || null,
+      rating: place.rating || null,
+      reviewCount: place.userRatingCount || null,
+    };
+  } catch {
+    return null;
+  }
 }

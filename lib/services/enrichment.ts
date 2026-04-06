@@ -54,14 +54,16 @@ function generateEmailCandidates(
   lastName: string,
   domain: string,
 ): string[] {
-  const f = firstName.toLowerCase().trim();
-  const l = lastName.toLowerCase().trim();
-  if (!f || !l) return [`hello@${domain}`, `info@${domain}`];
+  // Companies House names can have multiple parts e.g. "Syeda Faiza"
+  // Use only the actual first name for email generation
+  const firstPart = firstName.toLowerCase().trim().split(/\s+/)[0] || "";
+  const l = lastName.toLowerCase().trim().replace(/\s+/g, "");
+  if (!firstPart || !l) return [`hello@${domain}`, `info@${domain}`];
   return [
-    `${f}@${domain}`,
-    `${f}.${l}@${domain}`,
-    `${f[0]}.${l}@${domain}`,
-    `${f[0]}${l}@${domain}`,
+    `${firstPart}@${domain}`,
+    `${firstPart}.${l}@${domain}`,
+    `${firstPart[0]}.${l}@${domain}`,
+    `${firstPart[0]}${l}@${domain}`,
     `hello@${domain}`,
     `info@${domain}`,
   ];
@@ -315,7 +317,7 @@ export async function enrichLead(
     // 1. Google Places lookup for website, phone, rating
     const place = await googlePlaces.findBusiness({
       query: `${candidate.name} ${candidate.location}`,
-      region: "uk",
+      region: "gb",
     });
 
     const website = place?.website || null;
@@ -433,7 +435,11 @@ export async function enrichLead(
       companyAgeYears,
       companyNumber: candidate.companyNumber,
     };
-  } catch {
+  } catch (err) {
+    console.error(
+      `[enrichLead] Failed for ${candidate.name}:`,
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }

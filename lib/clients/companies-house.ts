@@ -73,9 +73,14 @@ export async function search(
   const maxResults = params.maxResults || 500;
   let startIndex = 0;
 
+  // Build full SIC code list for the API query. The CH API accepts
+  // a comma-separated list of 5-digit SIC codes. We pass our prefix
+  // targets as full codes (e.g. "69102" for solicitors).
+  const sicCodesParam = params.sicCodes.join(",");
+
   while (results.length < maxResults) {
     const locationParam = params.locationQuery || params.postcodeArea;
-    const searchUrl = `${BASE_URL}/advanced-search/companies?location=${encodeURIComponent(locationParam)}&company_status=${params.status}&incorporated_from=${params.incorporatedAfter}&size=100&start_index=${startIndex}`;
+    const searchUrl = `${BASE_URL}/advanced-search/companies?location=${encodeURIComponent(locationParam)}&company_status=${params.status}&incorporated_from=${params.incorporatedAfter}&sic_codes=${encodeURIComponent(sicCodesParam)}&size=100&start_index=${startIndex}`;
 
     const response = await fetch(searchUrl, {
       headers: { Authorization: getAuthHeader() },
@@ -99,13 +104,6 @@ export async function search(
       const targetPrefix = params.postcodeArea.toUpperCase();
       if (!postcode.startsWith(targetPrefix)) continue;
 
-      const companySicCodes = company.sic_codes || [];
-      const matchesSector = companySicCodes.some((sic) =>
-        params.sicCodes.some((target) => sic.startsWith(target)),
-      );
-
-      if (!matchesSector) continue;
-
       const location = [address.locality, address.region]
         .filter(Boolean)
         .join(", ");
@@ -114,7 +112,7 @@ export async function search(
         companyNumber: company.company_number,
         name: company.company_name,
         location: location || params.postcodeArea,
-        sicCodes: companySicCodes,
+        sicCodes: company.sic_codes || [],
         incorporatedDate: company.date_of_creation,
         source: "companies_house",
       });

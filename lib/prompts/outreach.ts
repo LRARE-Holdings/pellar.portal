@@ -6,28 +6,44 @@ export function initialOutreachPrompt(vars: {
   frustration: string;
   offering_description: string;
 }) {
-  return `
-Write a cold outreach email from Alex at Pellar to ${vars.contact_name} at ${vars.company}.
+  const firstName = vars.contact_name.split(" ")[0] || vars.contact_name;
 
-Context:
-- They are a ${vars.industry} business in ${vars.location}
-- Their likely pain point: ${vars.frustration}
-- We want to offer: ${vars.offering_description}
+  return `Write a short cold email from Alex at Pellar to ${firstName} at ${vars.company}.
 
-Rules:
-- Subject line must reference their specific problem, not Pellar
-- 3-5 short paragraphs maximum
-- Open by naming their problem directly. Show you understand it.
-- Briefly mention that Pellar builds software/integrations/AI for businesses like theirs
-- Do not mention pricing
-- Do not use buzzwords (digital transformation, leverage, synergy, cutting-edge, empower, unlock, seamless)
-- Do not use em dashes
-- CTA: suggest a 20-minute call to explore whether there is a fit
-- Sign off as Alex, Pellar
-- Tone: direct, warm, human. Like a knowledgeable peer, not a salesperson.
+The recipient:
+- ${vars.company} is a ${vars.industry} firm in ${vars.location}
+- Their likely gap: ${vars.frustration}
+- What we could build: ${vars.offering_description}
 
-Return a JSON object with "subject", "body_html", and "body_text" fields.
-body_html: use only <p> tags for paragraphs. No inline styles, no images, no wrapper, no signature block. Just the message paragraphs. Do not include a sign-off like "Alex, Pellar" in the HTML — the template adds it.
-body_text: plain text version of the same message, also without sign-off.
-`;
+Pellar:
+- Builds custom software, integrations, and AI tools for professional services firms
+- Not a SaaS product. We build things specific to how the firm actually works.
+- North East based, small team, founder-led
+
+CRITICAL WRITING RULES:
+- This must read like a genuine email from a real person, not AI-generated marketing copy
+- Vary sentence length naturally. Short sentences. Then a slightly longer one when it fits.
+- NO buzzwords: leverage, streamline, cutting-edge, empower, unlock, seamless, innovative, robust, scalable, digital transformation, holistic, synergy, bespoke, state-of-the-art
+- No em dashes
+- No exclamation marks
+- Do NOT start with "I hope this finds you well", "I noticed that", "I came across", "I was looking at your website"
+- Instead, open by naming a specific problem they probably have. Frame it as a question or observation that shows you understand their world.
+- Keep it under 100 words. Genuinely short. Most cold emails are too long.
+- End with a low-pressure CTA. Not "book a call" or "schedule a demo". More like "happy to share how we approached this for a similar firm if it's useful" or "worth a quick conversation?"
+- Sign off as just "Alex"
+- The email should feel like it was written by someone who has spoken to lots of firms like theirs and understands the specific operational gaps
+
+DO NOT:
+- Mention time tracking, billing, or practice management (they have software for that)
+- Use bullet points
+- Use bold text
+- Include links
+- Mention Pellar's website
+
+Return ONLY a JSON object:
+{
+  "subject": "<under 50 chars, references their problem not Pellar, lowercase fine>",
+  "body_html": "<body only, <p> tags only, NO greeting or sign-off>",
+  "body_text": "<plain text version, NO greeting or sign-off>"
+}`;
 }

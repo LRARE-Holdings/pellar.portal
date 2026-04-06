@@ -13,111 +13,132 @@ import type {
 } from "@/types";
 
 const HUNTER_SCORE_THRESHOLD = 70;
-const TARGET_LEADS = 100;
-const ENRICHMENT_POOL_SIZE = 250;
+const TARGET_LEADS = 50;
+const CANDIDATES_TARGET = 1000;
 const QUALIFICATION_THRESHOLD = 50;
-const ENRICHMENT_BATCH_SIZE = 10;
+const ENRICHMENT_BATCH_SIZE = 3;
 
-// Run all sectors every day — no day-of-week rotation
-const ALL_SECTORS = [
-  "Manufacturing",
-  "Construction",
+// Professional services focus — firms that buy operational software,
+// not regulated products. Lawyers, accountants, financial advisors,
+// estate agents, architects, consultancies, recruiters.
+const TARGET_SECTORS = [
   "Legal",
-  "Financial Services",
-  "Healthcare",
-  "Professional Services",
-  "Property",
-  "Hospitality",
-  "Logistics",
-  "Retail",
-  "Technology",
+  "Accountancy",
+  "Financial Advisory",
+  "Estate Agency",
+  "Architecture & Engineering",
+  "Recruitment",
+  "Management Consultancy",
+  "Surveying",
+  "Insurance Broking",
 ];
 
+// Full 5-digit SIC codes for the Companies House sic_codes query parameter.
 const SECTOR_SIC_CODES: Record<string, string[]> = {
-  Manufacturing: [
-    "10", "11", "13", "14", "15", "16", "17", "18", "20", "21", "22", "23",
-    "24", "25", "26", "27", "28", "29", "30", "31", "32", "33",
-  ],
-  Legal: ["69"],
-  "Financial Services": ["64", "65", "66"],
-  Healthcare: ["86", "87", "88"],
-  Property: ["68"],
-  Construction: ["41", "42", "43"],
-  Hospitality: ["55", "56"],
-  Logistics: ["49", "50", "51", "52", "53"],
-  "Professional Services": ["70", "71", "73", "74"],
-  Education: ["85"],
-  Retail: ["47"],
-  Technology: ["62", "63"],
+  Legal: ["69101", "69102", "69109"],
+  Accountancy: ["69201", "69202", "69203"],
+  "Financial Advisory": ["66190", "66120", "66220"],
+  "Estate Agency": ["68310", "68320"],
+  "Architecture & Engineering": ["71111", "71121", "71122", "71200"],
+  Recruitment: ["78100", "78200", "78300"],
+  "Management Consultancy": ["70210", "70221", "70229"],
+  Surveying: ["71122"],
+  "Insurance Broking": ["66220"],
 };
 
-// Map postcode areas to place names for the Companies House location search.
-// The API does free-text matching on addresses so "NE" alone matches
-// "Ne Lincolnshire", "Newbury" etc. Using the city/town name gets far
-// better precision (100% vs 12% correct postcode matches).
-const NE_LOCATIONS: Array<{ query: string; postcodePrefix: string }> = [
+// National coverage: major UK cities and regions.
+// NE England listed first (priority), then national.
+const UK_LOCATIONS: Array<{ query: string; postcodePrefix: string }> = [
+  // NE England (priority)
   { query: "Newcastle upon Tyne", postcodePrefix: "NE" },
   { query: "Durham", postcodePrefix: "DH" },
   { query: "Sunderland", postcodePrefix: "SR" },
   { query: "Middlesbrough", postcodePrefix: "TS" },
   { query: "Darlington", postcodePrefix: "DL" },
-];
-const WIDER_LOCATIONS: Array<{ query: string; postcodePrefix: string }> = [
+  // Yorkshire
+  { query: "Leeds", postcodePrefix: "LS" },
+  { query: "Sheffield", postcodePrefix: "S" },
   { query: "York", postcodePrefix: "YO" },
-  { query: "Harrogate", postcodePrefix: "HG" },
-  { query: "Carlisle", postcodePrefix: "CA" },
-  { query: "Lancaster", postcodePrefix: "LA" },
+  // North West
+  { query: "Manchester", postcodePrefix: "M" },
+  { query: "Liverpool", postcodePrefix: "L" },
+  // Midlands
+  { query: "Birmingham", postcodePrefix: "B" },
+  { query: "Nottingham", postcodePrefix: "NG" },
+  { query: "Leicester", postcodePrefix: "LE" },
+  // South
+  { query: "Bristol", postcodePrefix: "BS" },
+  { query: "Oxford", postcodePrefix: "OX" },
+  { query: "Cambridge", postcodePrefix: "CB" },
+  { query: "Reading", postcodePrefix: "RG" },
+  // London
+  { query: "London", postcodePrefix: "EC" },
+  { query: "London", postcodePrefix: "WC" },
+  // Scotland
+  { query: "Edinburgh", postcodePrefix: "EH" },
+  { query: "Glasgow", postcodePrefix: "G" },
 ];
-const MIN_CANDIDATES_BEFORE_EXPANSION = 200;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function searchAllSectors(
-  locations: Array<{ query: string; postcodePrefix: string }>,
+/**
+ * Phase 1: Fast national search — gather 1000+ raw candidates from
+ * Companies House. No enrichment at this stage (just CH data).
+ */
+async function searchNationally(
   errors: string[],
 ): Promise<CompanyCandidate[]> {
   const candidates: CompanyCandidate[] = [];
+  const seen = new Set<string>();
 
-  for (const sector of ALL_SECTORS) {
+  for (const sector of TARGET_SECTORS) {
     const sicCodes = SECTOR_SIC_CODES[sector];
     if (!sicCodes) continue;
 
-    for (const loc of locations) {
+    for (const loc of UK_LOCATIONS) {
+      if (candidates.length >= CANDIDATES_TARGET) break;
+
       try {
         const results = await companiesHouse.search({
           sicCodes,
           postcodeArea: loc.postcodePrefix,
           locationQuery: loc.query,
           status: "active",
-          incorporatedAfter: "2015-01-01",
-          maxResults: 500,
+          incorporatedAfter: "2010-01-01",
+          maxResults: 200,
         });
-        candidates.push(
-          ...results.map((r) => ({ ...r, industry: sector })),
-        );
+
+        for (const r of results) {
+          if (seen.has(r.companyNumber)) continue;
+          seen.add(r.companyNumber);
+          candidates.push({ ...r, industry: sector });
+        }
       } catch (err) {
         errors.push(
-          `Companies House search failed for ${sector}/${loc.query}: ${err instanceof Error ? err.message : "Unknown error"}`,
+          `CH search failed for ${sector}/${loc.query}: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
       }
     }
 
-    // Rate limiting between sector batches
     await delay(200);
+    if (candidates.length >= CANDIDATES_TARGET) break;
   }
 
   return candidates;
 }
 
+/**
+ * Phase 2: Enrich candidates in batches of ENRICHMENT_BATCH_SIZE,
+ * with delays to respect API rate limits.
+ */
 async function enrichBatch(
   candidates: CompanyCandidate[],
   errors: string[],
 ): Promise<EnrichedLead[]> {
   const enriched: EnrichedLead[] = [];
 
-  // Process in batches for parallelism
   for (let i = 0; i < candidates.length; i += ENRICHMENT_BATCH_SIZE) {
     const batch = candidates.slice(i, i + ENRICHMENT_BATCH_SIZE);
 
@@ -136,9 +157,8 @@ async function enrichBatch(
       }
     }
 
-    // Brief pause between batches to respect API limits
     if (i + ENRICHMENT_BATCH_SIZE < candidates.length) {
-      await delay(100);
+      await delay(2000);
     }
   }
 
@@ -148,16 +168,10 @@ async function enrichBatch(
 export async function runDiscovery(): Promise<DiscoveryResult> {
   const errors: string[] = [];
 
-  // 1. Search Companies House across all sectors, NE locations first
-  let candidates = await searchAllSectors(NE_LOCATIONS, errors);
+  // 1. Search nationally for 1000+ raw candidates
+  const candidates = await searchNationally(errors);
 
-  // 2. Expand to wider geography if NE is thin
-  if (candidates.length < MIN_CANDIDATES_BEFORE_EXPANSION) {
-    const widerCandidates = await searchAllSectors(WIDER_LOCATIONS, errors);
-    candidates = [...candidates, ...widerCandidates];
-  }
-
-  // 3. Dedup against existing leads
+  // 2. Dedup against existing leads
   const { data: existing } = await supabaseAdmin
     .from("leads")
     .select("company, location");
@@ -174,18 +188,53 @@ export async function runDiscovery(): Promise<DiscoveryResult> {
       !existingSet.has(`${c.name.toLowerCase()}|${c.location.toLowerCase()}`),
   );
 
-  // 4. Enrich candidates in parallel batches
-  const toEnrich = fresh.slice(0, ENRICHMENT_POOL_SIZE);
-  const enriched = await enrichBatch(toEnrich, errors);
+  // 3. Pre-score using basic signals (industry + location) to select
+  //    the best candidates for full enrichment. This avoids wasting
+  //    expensive API calls on leads we won't use.
+  const HIGH_FIT_SECTORS = new Set([
+    "Legal", "Accountancy", "Financial Advisory",
+    "Estate Agency", "Insurance Broking",
+  ]);
+  const NE_PREFIXES = new Set(["NE", "DH", "SR", "TS", "DL"]);
 
-  // 5. Score and rank
+  const preScored = fresh.map((c) => {
+    let preScore = 0;
+    if (HIGH_FIT_SECTORS.has(c.industry)) preScore += 15;
+    else preScore += 10;
+
+    const postPrefix = c.location.match(/([A-Z]{1,2})\d/)?.[1] || "";
+    if (NE_PREFIXES.has(postPrefix)) preScore += 10;
+    else preScore += 5;
+
+    // Prefer established firms (incorporated earlier)
+    const age = new Date().getFullYear() - new Date(c.incorporatedDate).getFullYear();
+    if (age >= 5 && age <= 30) preScore += 5;
+    else if (age >= 2) preScore += 2;
+
+    return { candidate: c, preScore };
+  });
+
+  preScored.sort((a, b) => b.preScore - a.preScore);
+
+  // Take top 150 for enrichment (to get at least 50 qualified after full scoring)
+  const topCandidates = preScored.slice(0, 150).map((p) => p.candidate);
+
+  // 4. Enrich the top candidates
+  const enriched = await enrichBatch(topCandidates, errors);
+
+  // 5. Full score and rank
   const scored = enriched.map(scoreLead).sort((a, b) => b.score - a.score);
 
-  // 6. Filter by qualification threshold and take top TARGET_LEADS
-  const qualified = scored.filter((s) => s.score >= QUALIFICATION_THRESHOLD);
+  // 6. Filter: score threshold + must have email + phone
+  const qualified = scored.filter(
+    (s) =>
+      s.score >= QUALIFICATION_THRESHOLD &&
+      s.contactEmail &&
+      s.phone,
+  );
   const topLeads = qualified.slice(0, TARGET_LEADS);
 
-  // 7. Hunter email lookup for high-scoring leads without a verified email
+  // 7. Hunter email lookup for high-scoring leads without verified email
   for (const lead of topLeads) {
     if (lead.contactEmail) continue;
     if (lead.score < HUNTER_SCORE_THRESHOLD) continue;

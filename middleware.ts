@@ -52,6 +52,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/webhook|api/cron).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/webhook|api/cron|api/enrich).*)",
   ],
 };

@@ -1,18 +1,18 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { draftInitialEmail } from "@/lib/services/email-drafter";
+import { sendOutreachEmail } from "@/lib/services/email-sender";
 import type { Lead } from "@/types";
 
 const DAILY_LIMIT = 50;
 const MIN_SCORE = 60;
 
 interface AutoOutreachResult {
-  drafted: number;
+  sent: number;
   failed: number;
   skipped: number;
   errors: string[];
 }
 
-async function getDraftedTodayCount(): Promise<number> {
+async function getSentTodayCount(): Promise<number> {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
@@ -20,6 +20,7 @@ async function getDraftedTodayCount(): Promise<number> {
     .from("emails")
     .select("id", { count: "exact", head: true })
     .eq("direction", "outbound")
+    .in("status", ["sent", "delivered", "opened", "queued"])
     .gte("created_at", todayStart.toISOString());
 
   return count || 0;
@@ -27,21 +28,21 @@ async function getDraftedTodayCount(): Promise<number> {
 
 export async function runAutoOutreach(): Promise<AutoOutreachResult> {
   const errors: string[] = [];
-  let drafted = 0;
+  let sent = 0;
   let failed = 0;
 
   // 0. Weekdays only
   const day = new Date().getUTCDay();
   if (day === 0 || day === 6) {
-    return { drafted: 0, failed: 0, skipped: 0, errors: [] };
+    return { sent: 0, failed: 0, skipped: 0, errors: [] };
   }
 
   // 1. Check remaining daily budget
-  const draftedToday = await getDraftedTodayCount();
-  const remaining = DAILY_LIMIT - draftedToday;
+  const sentToday = await getSentTodayCount();
+  const remaining = DAILY_LIMIT - sentToday;
 
   if (remaining <= 0) {
-    return { drafted: 0, failed: 0, skipped: 0, errors: ["Daily limit already reached"] };
+    return { sent: 0, failed: 0, skipped: 0, errors: ["Daily limit already reached"] };
   }
 
   // 2. Find eligible leads: identified, score >= 60, has email, not stale
@@ -56,42 +57,25 @@ export async function runAutoOutreach(): Promise<AutoOutreachResult> {
     .limit(remaining);
 
   if (queryError || !leads) {
-    return { drafted: 0, failed: 0, skipped: 0, errors: [queryError?.message || "Failed to query leads"] };
+    return { sent: 0, failed: 0, skipped: 0, errors: [queryError?.message || "Failed to query leads"] };
   }
 
-  // 3. Draft outreach for each eligible lead (do not send)
+  // 3. Draft and send outreach for each eligible lead
   for (const row of leads) {
     const lead = row as Lead;
 
     try {
-      const draft = await draftInitialEmail(lead);
-
-      const { error: insertError } = await supabaseAdmin
-        .from("emails")
-        .insert({
-          lead_id: lead.id,
-          direction: "outbound",
-          status: "pending_review",
-          from_address: "alex@pellar.co.uk",
-          to_address: lead.contact_email,
-          subject: draft.subject,
-          body_html: draft.body_html,
-          body_text: draft.body_text,
-        });
-
-      if (insertError) {
-        errors.push(`Failed to create draft for ${lead.company}: ${insertError.message}`);
-        failed++;
-        continue;
-      }
-
-      drafted++;
+      await sendOutreachEmail(lead.id);
+      sent++;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      errors.push(`Failed to draft for ${lead.company}: ${message}`);
+      errors.push(`Failed to send to ${lead.company}: ${message}`);
       failed++;
     }
+
+    // Delay between sends to avoid Resend rate limits
+    await new Promise((r) => setTimeout(r, 1000));
   }
 
-  return { drafted, failed, skipped: 0, errors };
+  return { sent, failed, skipped: 0, errors };
 }

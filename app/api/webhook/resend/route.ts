@@ -1,4 +1,4 @@
-import { processInbound } from "@/lib/services/intent-parser";
+import { processInbound } from "@/lib/services/inbound";
 import { handleDeliveryEvent } from "@/lib/services/email-sender";
 import type { ResendInboundPayload, ResendEvent } from "@/types";
 import { createHmac, timingSafeEqual } from "crypto";

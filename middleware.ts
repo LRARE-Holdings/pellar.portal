@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
   // Redirect logged-in users away from login page
   if (user && request.nextUrl.pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/inbox";
     return NextResponse.redirect(url);
   }
 
@@ -52,6 +52,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/webhook|api/cron|api/enrich).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/webhook|api/cron|api/enrich|api/contact).*)",
   ],
 };

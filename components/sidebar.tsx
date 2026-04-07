@@ -7,13 +7,16 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/leads", label: "Leads" },
-  { href: "/pipeline", label: "Pipeline" },
-  { href: "/outreach", label: "Outreach" },
-  { href: "/briefings", label: "Briefings" },
-  { href: "/analytics", label: "Analytics" },
+  { href: "/inbox", label: "Inbox" },
+  { href: "/companies", label: "Companies" },
+  { href: "/contacts", label: "Contacts" },
+  { href: "/deals", label: "Deals" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/forecast", label: "Forecast" },
   { href: "/calendar", label: "Calendar" },
+  { href: "/briefings", label: "Briefings" },
+  { href: "/discovery", label: "Discovery" },
+  { href: "/dashboard", label: "Dashboard" },
 ];
 
 export function Sidebar() {
@@ -21,11 +24,6 @@ export function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Close mobile menu on navigation
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -82,6 +80,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
                 isActive
                   ? "bg-white/10 text-white"

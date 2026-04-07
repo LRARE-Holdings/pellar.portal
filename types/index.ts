@@ -427,3 +427,344 @@ export interface ResponseTimeMetrics {
   max_response_hours: number;
   total_responses: number;
 }
+
+// ============================================================================
+// Relationship-first CRM types (Phase 1+)
+// ============================================================================
+
+// Enums
+export type DealStage =
+  | "lead"
+  | "qualified"
+  | "discovery"
+  | "proposal"
+  | "negotiation"
+  | "won"
+  | "lost";
+
+export type LeadSource =
+  | "contact_form"
+  | "referral"
+  | "content"
+  | "linkedin"
+  | "event"
+  | "outbound"
+  | "discovery"
+  | "manual";
+
+export type EntityType = "company" | "contact" | "deal";
+
+export type DraftStatus = "draft" | "ready" | "approved" | "discarded";
+
+export type DocumentType = "proposal" | "contract" | "requirements" | "misc";
+
+export type MeetingSource = "portal" | "google";
+
+export type DiscoveryStatus = "pending_review" | "accepted" | "rejected";
+
+export type EmailRoutingStatus = "matched" | "unmatched" | "needs_review";
+
+export type TimelineEventType =
+  | "company_created"
+  | "contact_created"
+  | "deal_created"
+  | "deal_stage_changed"
+  | "deal_value_changed"
+  | "email_sent"
+  | "email_received"
+  | "draft_created"
+  | "draft_approved"
+  | "draft_discarded"
+  | "briefing_generated"
+  | "meeting_scheduled"
+  | "meeting_completed"
+  | "meeting_cancelled"
+  | "note_added"
+  | "task_created"
+  | "task_completed"
+  | "call_logged"
+  | "linkedin_logged"
+  | "tag_added"
+  | "tag_removed"
+  | "document_uploaded"
+  | "discovery_promoted";
+
+// Core entities
+
+export interface Company {
+  id: string;
+  name: string;
+  domain: string | null;
+  website: string | null;
+  industry: string | null;
+  location: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  social_links: Record<string, string>;
+  google_rating: number | null;
+  google_reviews: number | null;
+  estimated_revenue: string | null;
+  estimated_employees: number | null;
+  company_age_years: number | null;
+  company_number: string | null;
+  source: LeadSource;
+  source_detail: Record<string, unknown>;
+  fit_score: number | null;
+  frustration_hypothesis: string | null;
+  notes: string | null;
+  owner_id: string | null;
+  legacy_lead_id: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Contact {
+  id: string;
+  company_id: string | null;
+  name: string;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  is_primary: boolean;
+  do_not_contact: boolean;
+  notes: string | null;
+  source: LeadSource;
+  source_detail: Record<string, unknown>;
+  owner_id: string | null;
+  legacy_lead_id: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Deal {
+  id: string;
+  company_id: string;
+  primary_contact_id: string | null;
+  offering_id: string | null;
+  title: string;
+  stage: DealStage;
+  value: number | null;
+  close_date: string | null;
+  probability_override: number | null;
+  source: LeadSource;
+  source_detail: Record<string, unknown>;
+  notes: string | null;
+  owner_id: string | null;
+  legacy_lead_id: string | null;
+  archived_at: string | null;
+  last_activity_at: string | null;
+  stage_changed_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DealContact {
+  deal_id: string;
+  contact_id: string;
+  role: string | null;
+  created_at: string;
+}
+
+export interface Offering {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  body: string | null;
+  due_at: string | null;
+  snoozed_until: string | null;
+  completed_at: string | null;
+  entity_type: EntityType | null;
+  entity_id: string | null;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Note {
+  id: string;
+  entity_type: EntityType;
+  entity_id: string;
+  body: string;
+  author_id: string | null;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+}
+
+export interface EntityTag {
+  tag_id: string;
+  entity_type: EntityType;
+  entity_id: string;
+  created_at: string;
+}
+
+export interface TimelineEvent {
+  id: string;
+  type: TimelineEventType;
+  company_id: string | null;
+  contact_id: string | null;
+  deal_id: string | null;
+  description: string;
+  metadata: Record<string, unknown>;
+  actor_id: string | null;
+  created_at: string;
+}
+
+export interface EmailDraft {
+  id: string;
+  company_id: string | null;
+  contact_id: string | null;
+  deal_id: string | null;
+  in_reply_to_email_id: string | null;
+  to_address: string;
+  cc_addresses: string[] | null;
+  subject: string;
+  body_html: string;
+  body_text: string;
+  generated_by: "ai" | "user";
+  ai_prompt_used: string | null;
+  status: DraftStatus;
+  approved_email_id: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  discarded_at: string | null;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentRow {
+  id: string;
+  company_id: string | null;
+  deal_id: string | null;
+  document_type: DocumentType;
+  title: string;
+  storage_path: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DiscoveryCandidate {
+  id: string;
+  company_name: string;
+  company_number: string | null;
+  domain: string | null;
+  website: string | null;
+  industry: string | null;
+  location: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_title: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  google_rating: number | null;
+  google_reviews: number | null;
+  estimated_employees: number | null;
+  estimated_revenue: string | null;
+  company_age_years: number | null;
+  frustration_hypothesis: string | null;
+  suggested_offering_id: string | null;
+  fit_score: number | null;
+  raw: Record<string, unknown>;
+  status: DiscoveryStatus;
+  promoted_company_id: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+// Views
+
+export interface DealForecast {
+  id: string;
+  company_id: string;
+  title: string;
+  stage: DealStage;
+  value: number | null;
+  close_date: string | null;
+  probability: number;
+  weighted_value: number;
+  close_month: string | null;
+}
+
+export interface CompanyEngagement {
+  company_id: string;
+  name: string;
+  contact_count: number;
+  email_count: number;
+  meeting_count: number;
+  note_count: number;
+  last_touch_at: string | null;
+  engagement_score: number;
+}
+
+export type InboxItemKind =
+  | "draft_ready"
+  | "unanswered_inbound"
+  | "task_overdue"
+  | "meeting_soon"
+  | "deal_stale";
+
+export interface InboxItem {
+  id: string;
+  kind: InboxItemKind;
+  priority: number;
+  sort_at: string;
+  title: string;
+  subtitle: string | null;
+  company_id: string | null;
+  contact_id: string | null;
+  deal_id: string | null;
+  source_id: string;
+  metadata: Record<string, unknown>;
+}
+
+// Enriched join shapes used by the UI
+
+export interface CompanyWithEngagement extends Company {
+  engagement: CompanyEngagement | null;
+  primary_contact: Contact | null;
+  active_deal_count: number;
+  total_pipeline_value: number;
+}
+
+export interface DealWithRelations extends Deal {
+  company: Pick<Company, "id" | "name" | "industry" | "location" | "domain"> | null;
+  primary_contact: Pick<Contact, "id" | "name" | "email" | "title"> | null;
+  offering: Pick<Offering, "id" | "slug" | "name"> | null;
+  probability: number;
+  weighted_value: number;
+}
+
+export interface ContactWithCompany extends Contact {
+  company: Pick<Company, "id" | "name" | "industry" | "location" | "domain"> | null;
+}
+
+export interface InboxItemWithRelations extends InboxItem {
+  company: Pick<Company, "id" | "name"> | null;
+  contact: Pick<Contact, "id" | "name" | "email"> | null;
+  deal: Pick<Deal, "id" | "title" | "stage" | "value"> | null;
+}

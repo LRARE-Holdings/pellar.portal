@@ -4,9 +4,13 @@ Internal CRM and outreach platform for Pellar. Hosted at `portal.pellar.co.uk`.
 
 ## Project Overview
 
-An internal tool for Pellar's team to manage outbound sales. The portal auto-discovers 10 leads per day (North East SME focus), sends branded outreach emails via Resend, tracks pipeline progress, auto-follows-up, and generates AI-powered briefings when leads respond.
+A relationship-first CRM for Pellar. Captures leads from four channels — inbound contact form, referrals, content/LinkedIn, and curated outbound — and turns them into deals with full pipeline tracking, weighted forecasting, AI-drafted emails (always approved by user before sending), real Google Calendar sync, and AI briefings before meetings.
 
-Pellar offers: custom software builds, systems integration, AI implementation, and process automation — targeted at high-frustration operational problems in local SMEs.
+Pellar offers: custom software builds, systems integration, AI implementation, and process automation — targeted at high-frustration operational problems in UK SMEs (£10k–£100k+ deals, 3–6 month sales cycles).
+
+## Core principle
+
+The CRM is built around relationships and judgement, not volume. Nothing auto-sends. Discovery is throttled to a weekly review queue. The Inbox surfaces only what genuinely needs Alex's attention. Every cold email is AI-drafted but approved by hand.
 
 ## Architecture
 

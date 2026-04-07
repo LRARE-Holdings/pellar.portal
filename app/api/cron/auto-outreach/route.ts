@@ -1,4 +1,7 @@
-import { runAutoOutreach } from "@/lib/services/auto-outreach";
+// Auto-outreach is disabled as part of the relationship-first CRM rebuild.
+// The portal no longer sends emails autonomously. Drafts are created via the
+// drafts service and require explicit user approval before sending.
+// Endpoint preserved as a no-op in case Vercel is still scheduled to hit it.
 
 export async function GET(req: Request) {
   if (
@@ -7,6 +10,10 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runAutoOutreach();
-  return Response.json(result);
+  return Response.json({
+    disabled: true,
+    reason: "auto_outreach_retired",
+    message:
+      "Auto-outreach has been retired. Use the drafts queue and approve manually.",
+  });
 }

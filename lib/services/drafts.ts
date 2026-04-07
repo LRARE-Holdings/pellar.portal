@@ -2,14 +2,16 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { anthropic } from "@/lib/anthropic";
 import { resend } from "@/lib/resend";
 import { wrapInBrandedTemplate, styleParagraphs } from "@/lib/email-template";
-import { initialOutreachPrompt } from "@/lib/prompts/outreach";
+import { outreachPrompt, type ReachContext } from "@/lib/prompts/outreach";
 import { replyDraftPrompt } from "@/lib/prompts/reply-draft";
 import { logTimelineEvent } from "@/lib/services/timeline";
 import { getDealWithRelations } from "@/lib/services/deals";
 import { getContact } from "@/lib/services/contacts";
 import { getCompany } from "@/lib/services/companies";
 import { getOffering } from "@/lib/services/offerings";
-import type { DraftedEmail, EmailDraft } from "@/types";
+import { listNotes } from "@/lib/services/notes";
+import { listTimelineEvents } from "@/lib/services/timeline";
+import type { DraftedEmail, EmailDraft, LeadSource } from "@/types";
 
 const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
 
@@ -22,11 +24,28 @@ export interface DraftFromDealInput {
   owner_id?: string | null;
   /** Override the to_address (otherwise uses the primary contact's email). */
   to_address?: string;
+  /**
+   * Free-text context Alex types when triggering the draft. Anchors the
+   * email's opening — e.g. "Sarah introduced us at the NE Tech Show last
+   * Tuesday and said you're stuck with a Sage + Excel handoff that costs
+   * the paralegals an hour a day".
+   */
+  personal_context?: string | null;
 }
 
 /**
  * Draft a fresh outreach email to the primary contact on a deal.
- * Uses the existing initialOutreachPrompt — same brand voice, same rules.
+ *
+ * Builds a rich ReachContext from:
+ *   - the deal's source + source_detail (referral / inbound form / etc.)
+ *   - the contact's title
+ *   - the company's frustration hypothesis
+ *   - any notes Alex has logged on the company or deal
+ *   - the most recent 5 timeline events on the deal
+ *   - free-text personal_context if Alex passed any
+ *
+ * The new outreach prompt teaches voice through positive examples rather
+ * than a long list of don'ts, which produces noticeably warmer output.
  */
 export async function generateInitialDraft(
   input: DraftFromDealInput,
@@ -44,25 +63,48 @@ export async function generateInitialDraft(
     throw new Error("No to_address available");
   }
 
-  const offering = deal.offering
-    ? await getOffering(deal.offering.id)
-    : null;
-  const offeringDescription =
+  const offering = deal.offering ? await getOffering(deal.offering.id) : null;
+  const offeringSummary =
     offering?.description ??
     "Custom software, integrations, and AI tools built for how the firm actually works";
 
   const company = await getCompany(deal.company.id);
   if (!company) throw new Error("Company not found");
 
-  const prompt = initialOutreachPrompt({
-    contact_name: contact?.name ?? "there",
-    company: deal.company.name,
-    industry: deal.company.industry ?? "professional services",
-    location: deal.company.location ?? "the UK",
-    frustration: company.frustration_hypothesis ?? "operational inefficiency",
-    offering_description: offeringDescription,
-  });
+  // Pull notes + recent activity to give the model real context
+  const [companyNotes, dealNotes, recentEvents] = await Promise.all([
+    listNotes("company", company.id),
+    listNotes("deal", deal.id),
+    listTimelineEvents({ deal_id: deal.id, limit: 5 }),
+  ]);
 
+  const notesText = [
+    ...companyNotes.map((n) => n.body),
+    ...dealNotes.map((n) => n.body),
+  ]
+    .join("\n\n")
+    .trim();
+
+  const recentActivity = recentEvents.map((e) => e.description);
+
+  const reachKind = leadSourceToReachKind(deal.source);
+
+  const ctx: ReachContext = {
+    contact_name: contact?.name ?? "there",
+    contact_title: contact?.title ?? null,
+    contact_email: toAddress,
+    company: deal.company.name,
+    industry: deal.company.industry ?? null,
+    location: deal.company.location ?? null,
+    reach_kind: reachKind,
+    personal_context: input.personal_context?.trim() || null,
+    frustration_hypothesis: company.frustration_hypothesis ?? null,
+    recent_activity: recentActivity,
+    notes: notesText.length > 0 ? notesText : null,
+    offering_summary: offeringSummary,
+  };
+
+  const prompt = outreachPrompt(ctx);
   const drafted = await callClaudeForEmail(prompt);
 
   return persistDraft({
@@ -79,14 +121,48 @@ export async function generateInitialDraft(
   });
 }
 
+/**
+ * Map a deal's structured source field onto the prompt's reach_kind enum.
+ * Determines the opening register the model picks (warm intro vs cold).
+ */
+function leadSourceToReachKind(
+  source: LeadSource,
+): ReachContext["reach_kind"] {
+  switch (source) {
+    case "referral":
+      return "referral";
+    case "contact_form":
+      return "warm_inbound";
+    case "content":
+      return "content_response";
+    case "linkedin":
+      return "content_response";
+    case "event":
+      return "event_followup";
+    case "outbound":
+      return "curated_outbound";
+    case "discovery":
+      return "curated_outbound";
+    case "manual":
+    default:
+      return "unknown";
+  }
+}
+
 export interface DraftReplyInput {
   in_reply_to_email_id: string;
   owner_id?: string | null;
+  /** Optional free-text from Alex steering the reply. */
+  personal_context?: string | null;
 }
 
 /**
- * Draft a reply to an inbound email. Uses the intent classifier output
- * already on the email row, fetches prior thread context, then generates.
+ * Draft a reply to an inbound email. Pulls the inbound, the prior thread,
+ * notes, and the deal context, then asks Claude for a human-sounding reply.
+ *
+ * The new prompt drops per-intent template scripts in favour of a single
+ * voice prompt with positive examples. The intent label is still passed
+ * through but as a hint, not a script.
  */
 export async function generateReplyDraft(
   input: DraftReplyInput,
@@ -135,16 +211,32 @@ export async function generateReplyDraft(
     }
   }
 
+  // Pull notes from both the company and the deal
+  const [companyNotes, dealNotes] = await Promise.all([
+    company ? listNotes("company", company.id) : Promise.resolve([]),
+    deal ? listNotes("deal", deal.id) : Promise.resolve([]),
+  ]);
+  const notesText = [
+    ...companyNotes.map((n) => n.body),
+    ...dealNotes.map((n) => n.body),
+  ]
+    .join("\n\n")
+    .trim();
+
   const prompt = replyDraftPrompt({
     contact_name: contact?.name ?? inbound.from_address.split("@")[0],
+    contact_title: contact?.title ?? null,
     company: company?.name ?? "their firm",
+    industry: company?.industry ?? null,
     inbound_subject: inbound.subject,
     inbound_body: inbound.body_text ?? inbound.body_html ?? "",
     intent: inbound.intent ?? "unclear",
     intent_summary: inbound.intent_summary ?? "",
     deal_stage: deal?.stage ?? null,
     prior_thread: priorThread,
-    frustration: company?.frustration_hypothesis ?? null,
+    frustration_hypothesis: company?.frustration_hypothesis ?? null,
+    notes: notesText.length > 0 ? notesText : null,
+    personal_context: input.personal_context?.trim() || null,
   });
 
   const drafted = await callClaudeForEmail(prompt);

@@ -4,7 +4,15 @@ import { generateInitialDraft, generateReplyDraft } from "@/lib/services/drafts"
 
 /**
  * POST /api/drafts/generate
- * Body: { kind: "initial", deal_id } | { kind: "reply", in_reply_to_email_id }
+ * Body:
+ *   { kind: "initial", deal_id, personal_context? }
+ *   { kind: "reply", in_reply_to_email_id, personal_context? }
+ *
+ * personal_context is free-text Alex types when triggering the draft, e.g.
+ * "Sarah introduced us at the NE Tech Show last Tuesday and said you're
+ * stuck with a Sage + Excel handoff that costs paralegals an hour a day".
+ * It anchors the email's opening — the difference between a generic cold
+ * draft and one that earns a reply.
  *
  * Returns the new draft row. Authenticated session required.
  */
@@ -26,6 +34,10 @@ export async function POST(req: Request) {
 
   const input = body as Record<string, unknown>;
   const kind = input.kind;
+  const personalContext =
+    typeof input.personal_context === "string" && input.personal_context.trim()
+      ? input.personal_context.slice(0, 2000)
+      : null;
 
   try {
     if (kind === "initial") {
@@ -38,6 +50,7 @@ export async function POST(req: Request) {
       const draft = await generateInitialDraft({
         deal_id: input.deal_id,
         owner_id: user.id,
+        personal_context: personalContext,
       });
       return NextResponse.json({ draft });
     }
@@ -51,6 +64,7 @@ export async function POST(req: Request) {
       const draft = await generateReplyDraft({
         in_reply_to_email_id: input.in_reply_to_email_id,
         owner_id: user.id,
+        personal_context: personalContext,
       });
       return NextResponse.json({ draft });
     }

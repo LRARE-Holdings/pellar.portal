@@ -6,7 +6,10 @@ import { listNotes } from "@/lib/services/notes";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { PageHeader, SectionHeader, EmptyState } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import {
+  DraftEmailButton,
+  OpenDraftButton,
+} from "@/components/draft-email-button";
 import { TimelineList } from "@/components/timeline-list";
 import { NotesList } from "@/components/notes-list";
 import {
@@ -75,9 +78,15 @@ export default async function DealDetailPage({
         actions={
           <>
             <Badge variant={dealStageVariant(deal.stage)}>{deal.stage}</Badge>
-            <Button variant="primary" size="sm">
-              Draft email
-            </Button>
+            <DraftEmailButton
+              dealId={deal.id}
+              disabled={!deal.primary_contact?.email}
+              disabledReason={
+                deal.primary_contact
+                  ? "No contact email"
+                  : "No primary contact"
+              }
+            />
           </>
         }
       />
@@ -113,9 +122,7 @@ export default async function DealDetailPage({
                       <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-forest">
                         AI draft · {relativeTime(draft.created_at)}
                       </p>
-                      <Button variant="primary" size="sm">
-                        Review & send
-                      </Button>
+                      <OpenDraftButton draftId={draft.id} />
                     </div>
                     <p className="mt-1.5 text-[14px] font-medium text-ink">
                       {draft.subject}

@@ -54,6 +54,7 @@ export default async function ContactsPage({
                 <th className="px-5 py-3">Title</th>
                 <th className="px-5 py-3">Company</th>
                 <th className="px-5 py-3">Email</th>
+                <th className="px-5 py-3">Phone</th>
                 <th className="px-5 py-3">Last touch</th>
               </tr>
             </thead>
@@ -90,6 +91,7 @@ export default async function ContactsPage({
                     )}
                   </td>
                   <td className="px-5 py-3 text-stone">{c.email ?? "—"}</td>
+                  <td className="px-5 py-3 text-stone">{c.phone ?? "—"}</td>
                   <td className="px-5 py-3 text-stone">
                     {relativeTime(c.updated_at)}
                   </td>

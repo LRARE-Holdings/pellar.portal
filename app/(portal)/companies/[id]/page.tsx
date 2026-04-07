@@ -196,8 +196,67 @@ export default async function CompanyDetailPage({
           </section>
         </div>
 
-        {/* Right column: Notes + Timeline */}
+        {/* Right column: Details + Notes + Timeline */}
         <div className="space-y-8">
+          <section className="rounded-lg border border-warm-gray bg-white p-5">
+            <SectionHeader>Details</SectionHeader>
+            <dl className="space-y-3 text-[13px]">
+              <DetailRow label="Phone" value={company.phone} />
+              <DetailRow
+                label="Website"
+                value={company.domain ?? company.website}
+                href={
+                  company.website
+                    ? company.website.startsWith("http")
+                      ? company.website
+                      : `https://${company.website}`
+                    : null
+                }
+              />
+              <DetailRow label="Industry" value={company.industry} />
+              <DetailRow label="Location" value={company.location} />
+              <DetailRow
+                label="Employees"
+                value={
+                  company.estimated_employees
+                    ? `~${company.estimated_employees}`
+                    : null
+                }
+              />
+              <DetailRow label="Revenue" value={company.estimated_revenue} />
+              <DetailRow
+                label="Age"
+                value={
+                  company.company_age_years
+                    ? `${company.company_age_years} years`
+                    : null
+                }
+              />
+              <DetailRow
+                label="Companies House"
+                value={company.company_number}
+                href={
+                  company.company_number
+                    ? `https://find-and-update.company-information.service.gov.uk/company/${company.company_number}`
+                    : null
+                }
+              />
+              <DetailRow
+                label="LinkedIn"
+                value={company.linkedin_url}
+                href={company.linkedin_url}
+              />
+              <DetailRow
+                label="Google rating"
+                value={
+                  company.google_rating
+                    ? `${company.google_rating}★ (${company.google_reviews ?? 0})`
+                    : null
+                }
+              />
+            </dl>
+          </section>
+
           <section>
             <SectionHeader>Notes</SectionHeader>
             <NotesList notes={notes as Note[]} />
@@ -233,6 +292,38 @@ function StatBlock({
       {subtitle ? (
         <p className="mt-0.5 text-[11px] text-stone">{subtitle}</p>
       ) : null}
+    </div>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string | null | undefined;
+  href?: string | null;
+}) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.05em] text-stone">
+        {label}
+      </dt>
+      <dd className="mt-0.5 break-all text-ink">
+        {value && href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-forest hover:underline"
+          >
+            {value}
+          </a>
+        ) : (
+          (value ?? "—")
+        )}
+      </dd>
     </div>
   );
 }
@@ -294,6 +385,7 @@ function ContactRow({
         <p className="truncate text-[12px] text-stone">
           {contact.title ?? "—"}
           {contact.email ? ` · ${contact.email}` : ""}
+          {contact.phone ? ` · ${contact.phone}` : ""}
         </p>
       </div>
       {contact.do_not_contact && (

@@ -124,11 +124,11 @@ export default async function CompaniesPage({
                       >
                         {c.name}
                       </Link>
-                      {c.location ? (
+                      {(c.location || c.phone) && (
                         <p className="mt-0.5 text-[11px] text-stone">
-                          {c.location}
+                          {[c.location, c.phone].filter(Boolean).join(" · ")}
                         </p>
-                      ) : null}
+                      )}
                     </td>
                     <td className="px-5 py-3 text-stone">
                       {c.industry ?? "—"}

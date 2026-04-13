@@ -30,6 +30,37 @@ interface TimeWindow {
   end: number;
 }
 
+/**
+ * Extract hours and minutes in a target timezone from a UTC Date.
+ * Uses Intl.DateTimeFormat which is reliable across Node.js runtimes.
+ */
+function getLocalTimeComponents(
+  utcDate: Date,
+  tz: string,
+): { hours: number; minutes: number } {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(utcDate);
+  const hours = parseInt(
+    parts.find((p) => p.type === "hour")?.value ?? "0",
+    10,
+  );
+  const minutes = parseInt(
+    parts.find((p) => p.type === "minute")?.value ?? "0",
+    10,
+  );
+  return { hours, minutes };
+}
+
+function dateToMinutesInTz(utcDate: Date, tz: string): number {
+  const { hours, minutes } = getLocalTimeComponents(utcDate, tz);
+  return hours * 60 + minutes;
+}
+
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
@@ -167,25 +198,18 @@ export async function getAvailableSlots(
     const dayEnd = minutesToISO(date, 24 * 60, tz);
 
     const googleEvents = await listEvents(systemUserId, dayStart, dayEnd);
+    console.log(`[booking] Google Calendar: ${googleEvents.length} events for ${date}`);
     for (const evt of googleEvents) {
       if (evt.isAllDay) {
-        // All-day events block the entire day
         busyPeriods.push({ start: 0, end: 24 * 60 });
         continue;
       }
       const evtStart = new Date(evt.start);
       const evtEnd = new Date(evt.end);
 
-      // Convert to minutes-from-midnight in Europe/London
-      const startLocal = new Date(
-        evtStart.toLocaleString("en-US", { timeZone: tz }),
-      );
-      const endLocal = new Date(
-        evtEnd.toLocaleString("en-US", { timeZone: tz }),
-      );
       busyPeriods.push({
-        start: startLocal.getHours() * 60 + startLocal.getMinutes(),
-        end: endLocal.getHours() * 60 + endLocal.getMinutes(),
+        start: dateToMinutesInTz(evtStart, tz),
+        end: dateToMinutesInTz(evtEnd, tz),
       });
     }
   }
@@ -205,15 +229,9 @@ export async function getAvailableSlots(
   for (const booking of existingBookings ?? []) {
     const bStart = new Date(booking.slot_start);
     const bEnd = new Date(booking.slot_end);
-    const startLocal = new Date(
-      bStart.toLocaleString("en-US", { timeZone: tz }),
-    );
-    const endLocal = new Date(
-      bEnd.toLocaleString("en-US", { timeZone: tz }),
-    );
     busyPeriods.push({
-      start: startLocal.getHours() * 60 + startLocal.getMinutes(),
-      end: endLocal.getHours() * 60 + endLocal.getMinutes(),
+      start: dateToMinutesInTz(bStart, tz),
+      end: dateToMinutesInTz(bEnd, tz),
     });
   }
 

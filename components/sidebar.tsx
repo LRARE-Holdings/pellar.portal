@@ -79,12 +79,13 @@ export function Sidebar() {
           .from("emails")
           .select("id", { count: "exact", head: true })
           .eq("direction", "inbound")
-          .eq("read", false),
+          .eq("routing_status", "pending"),
         supabase
           .from("tasks")
           .select("id", { count: "exact", head: true })
           .is("completed_at", null)
-          .lt("due_date", new Date().toISOString()),
+          .not("due_at", "is", null)
+          .lt("due_at", new Date().toISOString()),
       ]);
       setBadges({
         inbox: inboxRes.count ?? 0,

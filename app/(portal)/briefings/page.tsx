@@ -1,34 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { BriefingCard } from "@/components/briefing-card";
-import type { Briefing, Lead } from "@/types";
+import type { Briefing } from "@/types";
 
 export default async function BriefingsPage() {
   const supabase = await createClient();
 
+  // Fetch briefings with company relation (new schema)
   const { data: briefings } = await supabase
     .from("briefings")
-    .select("*")
+    .select("*, company:companies(id, name)")
     .order("created_at", { ascending: false });
 
-  const typedBriefings = (briefings || []) as Briefing[];
-
-  // Fetch lead names for the briefing cards
-  const leadIds = Array.from(new Set(typedBriefings.map((b) => b.lead_id)));
-  let leadMap: Record<string, string> = {};
-
-  if (leadIds.length > 0) {
-    const { data: leads } = await supabase
-      .from("leads")
-      .select("id, company")
-      .in("id", leadIds);
-
-    leadMap = Object.fromEntries(
-      ((leads || []) as Pick<Lead, "id" | "company">[]).map((l) => [
-        l.id,
-        l.company,
-      ]),
-    );
-  }
+  const typedBriefings = (briefings || []) as (Briefing & {
+    company?: { id: string; name: string } | null;
+  })[];
 
   return (
     <div>
@@ -38,14 +23,14 @@ export default async function BriefingsPage() {
         {typedBriefings.length === 0 && (
           <p className="text-sm text-stone">
             No briefings generated yet. Briefings are created when a lead
-            responds positively, or manually from the lead detail view.
+            responds positively, or manually from the deal detail view.
           </p>
         )}
         {typedBriefings.map((briefing) => (
           <BriefingCard
             key={briefing.id}
             briefing={briefing}
-            companyName={leadMap[briefing.lead_id]}
+            companyName={briefing.company?.name}
           />
         ))}
       </div>

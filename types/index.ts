@@ -93,7 +93,9 @@ export interface Email {
 
 export interface Briefing {
   id: string;
-  lead_id: string;
+  lead_id: string | null;
+  deal_id: string | null;
+  company_id: string | null;
   summary: string;
   talking_points: string[];
   company_intel: string[];
@@ -333,18 +335,31 @@ export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "no_show";
 
 export interface Meeting {
   id: string;
-  lead_id: string;
+  lead_id: string | null;
+  deal_id: string | null;
+  company_id: string | null;
+  contact_id: string | null;
   title: string;
   scheduled_at: string;
   duration_minutes: number;
   location: string | null;
   status: MeetingStatus;
   google_event_id: string | null;
+  source: string;
+  external_event_id: string | null;
+  owner_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
+export interface MeetingWithRelations extends Meeting {
+  company?: { id: string; name: string } | null;
+  contact?: { id: string; name: string; email: string } | null;
+  deal?: { id: string; title: string; stage: string } | null;
+}
+
+/** @deprecated Use MeetingWithRelations */
 export interface MeetingWithLead extends Meeting {
   lead: Pick<Lead, "id" | "company" | "contact_name" | "contact_email" | "industry">;
 }
@@ -371,6 +386,8 @@ export interface CalendarEvent {
   isAllDay: boolean;
   location: string | null;
   source: "portal" | "google";
+  companyId?: string;
+  dealId?: string;
   leadId?: string;
   status?: string;
   contactName?: string;

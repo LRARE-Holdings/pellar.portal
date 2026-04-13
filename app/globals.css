@@ -20,6 +20,33 @@ body {
   color: var(--color-ink);
 }
 
+/* Sidebar collapse/expand transition */
+aside {
+  transition: width 200ms ease-in-out;
+}
+
+/* Task checkbox completion animation */
+.task-completed {
+  text-decoration: line-through;
+  opacity: 0.5;
+  transition: opacity 200ms ease-in-out;
+}
+
+/* Inline edit form transitions */
+input:focus {
+  transition: border-color 150ms ease-in-out;
+}
+
+/* Smooth hover for table rows */
+tr {
+  transition: background-color 100ms ease-in-out;
+}
+
+/* Stage progress bar animation */
+.stage-bar {
+  transition: background-color 300ms ease-in-out;
+}
+
 @media print {
   aside {
     display: none !important;

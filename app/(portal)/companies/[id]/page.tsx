@@ -6,7 +6,7 @@ import { listNotes } from "@/lib/services/notes";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { PageHeader, SectionHeader, EmptyState } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { InlineEditCompany } from "@/components/inline-edit-company";
 import { TimelineList } from "@/components/timeline-list";
 import { NotesList } from "@/components/notes-list";
 import { gbp, gbpCompact, dateTime, relativeTime, dealStageVariant } from "@/lib/format";
@@ -95,9 +95,17 @@ export default async function CompanyDetailPage({
                 {company.domain ?? company.website}
               </a>
             )}
-            <Button variant="secondary" size="sm">
-              Edit
-            </Button>
+            <InlineEditCompany
+              companyId={company.id}
+              initialValues={{
+                name: company.name,
+                industry: company.industry,
+                location: company.location,
+                phone: company.phone,
+                website: company.website,
+                linkedin_url: company.linkedin_url,
+              }}
+            />
           </>
         }
       />

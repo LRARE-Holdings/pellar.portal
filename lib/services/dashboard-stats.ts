@@ -152,6 +152,95 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 }
 
 /**
+ * Week-over-week trend data for dashboard stat cards.
+ */
+export interface DashboardTrends {
+  active_deals: { direction: "up" | "down" | "flat"; value: string };
+  won_this_month: { direction: "up" | "down" | "flat"; value: string };
+  pipeline_value: { direction: "up" | "down" | "flat"; value: string };
+  meetings: { direction: "up" | "down" | "flat"; value: string };
+}
+
+function trendDir(current: number, previous: number): "up" | "down" | "flat" {
+  if (current > previous) return "up";
+  if (current < previous) return "down";
+  return "flat";
+}
+
+function trendPct(current: number, previous: number): string {
+  if (previous === 0) return current > 0 ? "new" : "";
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return `${Math.abs(pct)}%`;
+}
+
+export async function getDashboardTrends(): Promise<DashboardTrends> {
+  const sb = getSupabaseAdmin();
+  const now = new Date();
+  const d7 = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+  const d14 = new Date(now.getTime() - 14 * 86_400_000).toISOString();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 86_400_000).toISOString();
+
+  const [
+    currentNewDeals,
+    previousNewDeals,
+    currentWon,
+    previousWon,
+    currentMeetings,
+    previousMeetings,
+  ] = await Promise.all([
+    sb.from("deals").select("id", { count: "exact", head: true })
+      .not("stage", "in", "(won,lost)").is("archived_at", null).gte("created_at", d7),
+    sb.from("deals").select("id", { count: "exact", head: true })
+      .not("stage", "in", "(won,lost)").is("archived_at", null).gte("created_at", d14).lt("created_at", d7),
+    sb.from("deals").select("id", { count: "exact", head: true })
+      .eq("stage", "won").gte("stage_changed_at", d7),
+    sb.from("deals").select("id", { count: "exact", head: true })
+      .eq("stage", "won").gte("stage_changed_at", d14).lt("stage_changed_at", d7),
+    sb.from("meetings").select("id", { count: "exact", head: true })
+      .eq("status", "scheduled").gte("scheduled_at", now.toISOString()).lte("scheduled_at", sevenDaysFromNow),
+    sb.from("meetings").select("id", { count: "exact", head: true })
+      .gte("scheduled_at", d7).lte("scheduled_at", now.toISOString()),
+  ]);
+
+  return {
+    active_deals: {
+      direction: trendDir(currentNewDeals.count ?? 0, previousNewDeals.count ?? 0),
+      value: trendPct(currentNewDeals.count ?? 0, previousNewDeals.count ?? 0),
+    },
+    won_this_month: {
+      direction: trendDir(currentWon.count ?? 0, previousWon.count ?? 0),
+      value: trendPct(currentWon.count ?? 0, previousWon.count ?? 0),
+    },
+    pipeline_value: { direction: "flat", value: "" },
+    meetings: {
+      direction: trendDir(currentMeetings.count ?? 0, previousMeetings.count ?? 0),
+      value: trendPct(currentMeetings.count ?? 0, previousMeetings.count ?? 0),
+    },
+  };
+}
+
+/**
+ * Upcoming bookings this week for the dashboard widget.
+ */
+export async function getUpcomingBookings(limit: number = 5) {
+  const sb = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 86_400_000).toISOString();
+
+  const { data, error } = await sb
+    .from("bookings")
+    .select("id, visitor_name, visitor_company, meeting_type, slot_start, status")
+    .eq("status", "confirmed")
+    .gte("slot_start", now)
+    .lte("slot_start", sevenDaysFromNow)
+    .order("slot_start", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch bookings: ${error.message}`);
+  return data ?? [];
+}
+
+/**
  * Pipeline breakdown by stage. Used by the funnel chart.
  * Returns only active stages (excludes won/lost).
  */

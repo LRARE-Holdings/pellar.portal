@@ -3,7 +3,7 @@ import { CalendarGrid, UpcomingMeetings } from "@/components/calendar-grid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { listEvents } from "@/lib/clients/google-calendar";
-import type { Meeting, MeetingWithLead, Lead, CalendarEvent } from "@/types";
+import type { MeetingWithRelations, CalendarEvent } from "@/types";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -12,43 +12,15 @@ export default async function CalendarPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch all portal meetings
+  // Fetch meetings with company/contact/deal relations (new schema)
   const { data: meetingsRaw } = await supabase
     .from("meetings")
-    .select("*")
+    .select(
+      "*, company:companies(id, name), contact:contacts(id, name, email), deal:deals(id, title, stage)",
+    )
     .order("scheduled_at", { ascending: true });
 
-  const meetings = (meetingsRaw || []) as Meeting[];
-
-  // Fetch lead data for each meeting
-  const leadIds = Array.from(new Set(meetings.map((m) => m.lead_id)));
-  let leadMap: Record<
-    string,
-    Pick<Lead, "id" | "company" | "contact_name" | "contact_email" | "industry">
-  > = {};
-
-  if (leadIds.length > 0) {
-    const { data: leads } = await supabase
-      .from("leads")
-      .select("id, company, contact_name, contact_email, industry")
-      .in("id", leadIds);
-
-    leadMap = Object.fromEntries(
-      (
-        (leads || []) as Pick<
-          Lead,
-          "id" | "company" | "contact_name" | "contact_email" | "industry"
-        >[]
-      ).map((l) => [l.id, l]),
-    );
-  }
-
-  const meetingsWithLeads: MeetingWithLead[] = meetings
-    .filter((m) => leadMap[m.lead_id])
-    .map((m) => ({
-      ...m,
-      lead: leadMap[m.lead_id],
-    }));
+  const meetings = (meetingsRaw || []) as MeetingWithRelations[];
 
   // Check Google Calendar connection and fetch external events
   let hasGoogleCalendar = false;
@@ -64,7 +36,6 @@ export default async function CalendarPage() {
     hasGoogleCalendar = !!token;
 
     if (hasGoogleCalendar) {
-      // Fetch 3 months of events (1 month back, 2 months forward)
       const timeMin = new Date();
       timeMin.setMonth(timeMin.getMonth() - 1);
       timeMin.setDate(1);
@@ -78,21 +49,12 @@ export default async function CalendarPage() {
           .filter((id): id is string => id !== null),
       );
 
-      console.log("Calendar: fetching Google events", {
-        userId: user.id,
-        timeMin: timeMin.toISOString(),
-        timeMax: timeMax.toISOString(),
-      });
-
       const rawEvents = await listEvents(
         user.id,
         timeMin.toISOString(),
         timeMax.toISOString(),
       );
 
-      console.log("Calendar: Google events fetched", rawEvents.length);
-
-      // Filter out events that are already portal meetings (avoid duplicates)
       googleEvents = rawEvents
         .filter((e) => !portalEventIds.has(e.id))
         .map((e) => ({
@@ -109,26 +71,27 @@ export default async function CalendarPage() {
   }
 
   // Convert portal meetings to unified CalendarEvent format
-  const portalEvents: CalendarEvent[] = meetingsWithLeads.map((m) => {
+  const portalEvents: CalendarEvent[] = meetings.map((m) => {
+    const companyName = m.company?.name ?? "Unknown";
     const endTime = new Date(
       new Date(m.scheduled_at).getTime() + m.duration_minutes * 60 * 1000,
     );
     return {
       id: m.id,
-      title: `${m.lead.company}: ${m.title}`,
+      title: `${companyName}: ${m.title}`,
       start: m.scheduled_at,
       end: endTime.toISOString(),
       isAllDay: false,
       location: m.location,
       source: "portal" as const,
-      leadId: m.lead_id,
+      companyId: m.company?.id,
+      dealId: m.deal?.id ?? undefined,
       status: m.status,
-      contactName: m.lead.contact_name,
+      contactName: m.contact?.name,
     };
   });
 
   const allEvents = [...portalEvents, ...googleEvents];
-
   const now = new Date();
 
   return (

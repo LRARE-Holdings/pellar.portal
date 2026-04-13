@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { shortDate } from "@/lib/format";
+import { TaskCheckbox } from "@/components/task-checkbox";
 import type { Task } from "@/types";
 
 interface DashboardTaskWidgetProps {
@@ -24,14 +25,21 @@ export function DashboardTaskWidget({ tasks }: DashboardTaskWidgetProps) {
     <div>
       <div className="space-y-0">
         {tasks.map((task, idx) => (
-          <Link
+          <div
             key={task.id}
-            href={`/tasks?id=${task.id}`}
-            className={`flex items-center gap-3 px-1 py-3 transition-colors hover:bg-cream ${
+            className={`flex items-center gap-3 px-1 py-3 ${
               idx > 0 ? "border-t border-warm-gray" : ""
             }`}
           >
-            <div className="min-w-0 flex-1">
+            <TaskCheckbox
+              taskId={task.id}
+              completed={!!task.completed_at}
+              label={task.title}
+            />
+            <Link
+              href={`/tasks?id=${task.id}`}
+              className="min-w-0 flex-1 transition-colors hover:text-forest"
+            >
               <p className="truncate text-[13px] font-medium text-ink">
                 {task.title}
               </p>
@@ -40,7 +48,7 @@ export function DashboardTaskWidget({ tasks }: DashboardTaskWidgetProps) {
                   {task.entity_type}
                 </p>
               )}
-            </div>
+            </Link>
             {task.due_at && (
               <span
                 className={`shrink-0 text-[12px] font-medium ${
@@ -50,7 +58,7 @@ export function DashboardTaskWidget({ tasks }: DashboardTaskWidgetProps) {
                 {shortDate(task.due_at)}
               </span>
             )}
-          </Link>
+          </div>
         ))}
       </div>
       <Link

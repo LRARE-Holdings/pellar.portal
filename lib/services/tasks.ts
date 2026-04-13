@@ -102,6 +102,20 @@ export async function completeTask(
   return task;
 }
 
+export async function uncompleteTask(id: string): Promise<Task> {
+  const sb = getSupabaseAdmin();
+  const { data, error } = await sb
+    .from("tasks")
+    .update({ completed_at: null })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error || !data) {
+    throw new Error(`Failed to uncomplete task: ${error?.message}`);
+  }
+  return data as Task;
+}
+
 export async function snoozeTask(id: string, until: string): Promise<Task> {
   return updateTask(id, { snoozed_until: until });
 }

@@ -6,7 +6,7 @@ import { listNotes } from "@/lib/services/notes";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { PageHeader, SectionHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { InlineEditContact } from "@/components/inline-edit-contact";
 import { TimelineList } from "@/components/timeline-list";
 import { NotesList } from "@/components/notes-list";
 import { dateTime, relativeTime } from "@/lib/format";
@@ -49,9 +49,16 @@ export default async function ContactDetailPage({
             {contact.do_not_contact && (
               <Badge variant="danger">Do not contact</Badge>
             )}
-            <Button variant="secondary" size="sm">
-              Edit
-            </Button>
+            <InlineEditContact
+              contactId={contact.id}
+              initialValues={{
+                name: contact.name,
+                title: contact.title,
+                email: contact.email,
+                phone: contact.phone,
+                linkedin_url: contact.linkedin_url,
+              }}
+            />
           </>
         }
       />

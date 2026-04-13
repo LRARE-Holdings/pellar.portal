@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import type { Briefing, Lead } from "@/types";
+import type { Briefing } from "@/types";
 
 export default async function BriefingDetailPage({
   params,
@@ -17,19 +17,36 @@ export default async function BriefingDetailPage({
     .eq("id", id)
     .single();
 
-  if (!briefing) {
-    notFound();
-  }
+  if (!briefing) notFound();
 
   const typedBriefing = briefing as Briefing;
 
-  const { data: lead } = await supabase
-    .from("leads")
-    .select("*")
-    .eq("id", typedBriefing.lead_id)
-    .single();
+  // Hydrate company from new schema
+  let companyName: string | null = null;
+  let companyId: string | null = null;
+  let contactName: string | null = null;
+  let industry: string | null = null;
 
-  const typedLead = lead as Lead | null;
+  if (typedBriefing.company_id) {
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id, name, industry")
+      .eq("id", typedBriefing.company_id)
+      .single();
+    if (company) {
+      companyName = company.name;
+      companyId = company.id;
+      industry = company.industry;
+    }
+
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("name")
+      .eq("company_id", typedBriefing.company_id)
+      .eq("is_primary", true)
+      .single();
+    if (contact) contactName = contact.name;
+  }
 
   return (
     <div>
@@ -41,12 +58,12 @@ export default async function BriefingDetailPage({
           Briefings
         </Link>
         <span className="text-sm text-stone">/</span>
-        {typedLead && (
+        {companyId && companyName && (
           <Link
-            href={`/leads/${typedLead.id}`}
+            href={`/companies/${companyId}`}
             className="text-sm text-stone hover:text-ink"
           >
-            {typedLead.company}
+            {companyName}
           </Link>
         )}
       </div>
@@ -54,15 +71,13 @@ export default async function BriefingDetailPage({
       <h1 className="mt-4 text-[28px] font-normal text-ink">
         Scoping Call Briefing
       </h1>
-      {typedLead && (
+      {(companyName || contactName || industry) && (
         <p className="mt-1 text-sm text-stone">
-          {typedLead.company} · {typedLead.contact_name} ·{" "}
-          {typedLead.industry}
+          {[companyName, contactName, industry].filter(Boolean).join(" \u00B7 ")}
         </p>
       )}
 
       <div className="mt-6 space-y-6">
-        {/* Summary */}
         <div className="rounded-lg border border-warm-gray bg-white p-6">
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
             Situation Summary
@@ -72,7 +87,6 @@ export default async function BriefingDetailPage({
           </p>
         </div>
 
-        {/* Talking points */}
         <div className="rounded-lg border border-warm-gray bg-white p-6">
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
             Discussion Areas
@@ -89,7 +103,6 @@ export default async function BriefingDetailPage({
           </div>
         </div>
 
-        {/* Company intel */}
         <div className="rounded-lg border border-warm-gray bg-white p-6">
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">
             Company Intel
@@ -103,7 +116,6 @@ export default async function BriefingDetailPage({
           </div>
         </div>
 
-        {/* Response context */}
         {typedBriefing.response_context && (
           <div className="rounded-lg border border-warm-gray bg-white p-6">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-ink">

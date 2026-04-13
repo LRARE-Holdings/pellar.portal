@@ -12,11 +12,13 @@ import {
 } from "@/components/draft-email-button";
 import { TimelineList } from "@/components/timeline-list";
 import { NotesList } from "@/components/notes-list";
+import { StageProgressBar } from "@/components/stage-progress-bar";
 import {
   gbp,
   dateTime,
   relativeTime,
   dealStageVariant,
+  dealStageLabel,
 } from "@/lib/format";
 import type { Briefing, Email, EmailDraft, Meeting, Note, TimelineEvent } from "@/types";
 
@@ -32,7 +34,7 @@ export default async function DealDetailPage({
   if (!deal) notFound();
 
   const sb = getSupabaseAdmin();
-  const [emailsRes, draftsRes, briefingsRes, meetingsRes, notes, timeline] =
+  const [emailsRes, draftsRes, briefingsRes, meetingsRes, relatedDealsRes, notes, timeline] =
     await Promise.all([
       sb
         .from("emails")
@@ -57,6 +59,16 @@ export default async function DealDetailPage({
         .select("*")
         .eq("deal_id", id)
         .order("scheduled_at", { ascending: true }),
+      deal.company_id
+        ? sb
+            .from("deals")
+            .select("id, title, stage, value")
+            .eq("company_id", deal.company_id)
+            .neq("id", id)
+            .is("archived_at", null)
+            .order("created_at", { ascending: false })
+            .limit(5)
+        : Promise.resolve({ data: [] }),
       listNotes("deal", id),
       listTimelineEvents({ deal_id: id, limit: 50 }),
     ]);
@@ -65,6 +77,12 @@ export default async function DealDetailPage({
   const drafts = (draftsRes.data ?? []) as EmailDraft[];
   const briefings = (briefingsRes.data ?? []) as Briefing[];
   const meetings = (meetingsRes.data ?? []) as Meeting[];
+  const relatedDeals = (relatedDealsRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    stage: string;
+    value: number | null;
+  }>;
 
   return (
     <div>
@@ -102,6 +120,14 @@ export default async function DealDetailPage({
           subtitle={
             deal.close_date ? relativeTime(deal.close_date) : undefined
           }
+        />
+      </div>
+
+      {/* Stage progress bar */}
+      <div className="mb-8 rounded-lg border border-warm-gray bg-white p-5">
+        <StageProgressBar
+          currentStage={deal.stage}
+          stageChangedAt={deal.stage_changed_at}
         />
       </div>
 
@@ -286,6 +312,35 @@ export default async function DealDetailPage({
             <SectionHeader>Notes</SectionHeader>
             <NotesList notes={notes as Note[]} />
           </section>
+
+          {relatedDeals.length > 0 && (
+            <section>
+              <SectionHeader>Related deals</SectionHeader>
+              <div className="overflow-hidden rounded-lg border border-warm-gray bg-white">
+                {relatedDeals.map((rd, idx) => (
+                  <Link
+                    key={rd.id}
+                    href={`/deals/${rd.id}`}
+                    className={`flex items-center justify-between px-5 py-3 transition-colors hover:bg-cream ${
+                      idx === 0 ? "" : "border-t border-warm-gray"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-medium text-ink">
+                        {rd.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-stone">
+                        {rd.value ? gbp(rd.value) : "No value"}
+                      </p>
+                    </div>
+                    <Badge variant={dealStageVariant(rd.stage)}>
+                      {dealStageLabel(rd.stage)}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <SectionHeader>Timeline</SectionHeader>

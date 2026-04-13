@@ -1,6 +1,7 @@
 import { listTasks } from "@/lib/services/tasks";
 import { PageHeader, SectionHeader, EmptyState } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import { TaskCheckbox } from "@/components/task-checkbox";
 import { dateTime, relativeTime } from "@/lib/format";
 import type { Task } from "@/types";
 
@@ -106,10 +107,10 @@ function TaskGroup({
               idx === 0 ? "" : "border-t border-warm-gray"
             }`}
           >
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-warm-gray text-forest focus:ring-forest"
-              aria-label={`Mark ${task.title} complete`}
+            <TaskCheckbox
+              taskId={task.id}
+              completed={!!task.completed_at}
+              label={task.title}
             />
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-medium text-ink">{task.title}</p>

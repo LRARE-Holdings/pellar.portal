@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const navItems = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/inbox", label: "Inbox" },
   { href: "/companies", label: "Companies" },
   { href: "/contacts", label: "Contacts" },
@@ -16,7 +17,10 @@ const navItems = [
   { href: "/calendar", label: "Calendar" },
   { href: "/briefings", label: "Briefings" },
   { href: "/discovery", label: "Discovery" },
-  { href: "/dashboard", label: "Dashboard" },
+];
+
+const settingsItems = [
+  { href: "/settings/booking", label: "Booking" },
 ];
 
 export function Sidebar() {
@@ -92,6 +96,30 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="px-3 pb-2">
+        <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-stone/60">
+          Settings
+        </p>
+        {settingsItems.map((item) => {
+          const isActive =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors block ${
+                isActive
+                  ? "bg-white/10 text-white"
+                  : "text-stone hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
 
       <div className="px-3 pb-4">
         <button

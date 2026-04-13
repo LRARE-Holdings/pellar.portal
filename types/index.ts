@@ -450,7 +450,8 @@ export type LeadSource =
   | "event"
   | "outbound"
   | "discovery"
-  | "manual";
+  | "manual"
+  | "booking";
 
 export type EntityType = "company" | "contact" | "deal";
 
@@ -487,7 +488,9 @@ export type TimelineEventType =
   | "tag_added"
   | "tag_removed"
   | "document_uploaded"
-  | "discovery_promoted";
+  | "discovery_promoted"
+  | "booking_created"
+  | "booking_cancelled";
 
 // Core entities
 
@@ -767,4 +770,91 @@ export interface InboxItemWithRelations extends InboxItem {
   company: Pick<Company, "id" | "name"> | null;
   contact: Pick<Contact, "id" | "name" | "email"> | null;
   deal: Pick<Deal, "id" | "title" | "stage" | "value"> | null;
+}
+
+// ============================================================================
+// Booking system types
+// ============================================================================
+
+export type BookingMeetingType = "in_person" | "google_meet";
+
+export type BookingStatus = "confirmed" | "cancelled" | "completed" | "no_show";
+
+export type EnrichmentStatus = "pending" | "running" | "complete" | "failed";
+
+export interface BookingAvailability {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingOverride {
+  id: string;
+  override_date: string;
+  override_type: "available" | "blocked";
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Booking {
+  id: string;
+  meeting_id: string | null;
+  company_id: string | null;
+  contact_id: string | null;
+  deal_id: string | null;
+  visitor_name: string;
+  visitor_email: string;
+  visitor_company: string | null;
+  visitor_message: string | null;
+  service_interest: string | null;
+  meeting_type: BookingMeetingType;
+  slot_start: string;
+  slot_end: string;
+  duration_minutes: number;
+  status: BookingStatus;
+  google_event_id: string | null;
+  google_meet_link: string | null;
+  enrichment_status: EnrichmentStatus;
+  briefing_id: string | null;
+  ip_address: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AvailableSlot {
+  start: string;
+  end: string;
+}
+
+// ============================================================================
+// Dashboard metrics
+// ============================================================================
+
+export interface DashboardMetrics {
+  total_pipeline_value: number;
+  weighted_pipeline_value: number;
+  win_rate: number;
+  deals_won_this_month: number;
+  deals_won_value_this_month: number;
+  avg_deal_size: number;
+  active_deal_count: number;
+  new_companies_this_week: number;
+  open_tasks: number;
+  overdue_tasks: number;
+  inbox_count: number;
+  upcoming_meetings_count: number;
+}
+
+export interface CalendarEventResult {
+  eventId: string;
+  meetLink: string | null;
 }

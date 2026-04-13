@@ -148,3 +148,37 @@ export async function listTasks(
   if (error) throw new Error(`Failed to list tasks: ${error.message}`);
   return (data ?? []) as Task[];
 }
+
+/**
+ * Fetch tasks filtered by due date.
+ *
+ * - overdue=true: tasks where due_at < now and not completed
+ * - upcoming_days=N: tasks due within the next N days
+ * - Neither: all open tasks ordered by due_at
+ */
+export async function listDueTasks(opts: {
+  overdue?: boolean;
+  upcoming_days?: number;
+  limit?: number;
+}): Promise<Task[]> {
+  const sb = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  let q = sb.from("tasks").select("*").is("completed_at", null);
+
+  if (opts.overdue) {
+    q = q.not("due_at", "is", null).lt("due_at", now);
+  } else if (opts.upcoming_days != null) {
+    const future = new Date(
+      Date.now() + opts.upcoming_days * 86_400_000,
+    ).toISOString();
+    q = q.not("due_at", "is", null).gte("due_at", now).lte("due_at", future);
+  }
+
+  q = q.order("due_at", { ascending: true, nullsFirst: false });
+  if (opts.limit !== undefined) q = q.limit(opts.limit);
+
+  const { data, error } = await q;
+  if (error) throw new Error(`Failed to list due tasks: ${error.message}`);
+  return (data ?? []) as Task[];
+}

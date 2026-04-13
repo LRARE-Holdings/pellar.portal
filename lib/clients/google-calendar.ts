@@ -1,4 +1,5 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabaseAdmin, getSupabaseAdmin } from "@/lib/supabase/admin";
+import type { CalendarEventResult } from "@/types";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -134,8 +135,9 @@ export async function createEvent(
     durationMinutes: number;
     attendeeEmail?: string;
     location?: string;
+    addMeetLink?: boolean;
   },
-): Promise<string | null> {
+): Promise<CalendarEventResult | null> {
   const accessToken = await getValidAccessToken(userId);
   if (!accessToken) return null;
 
@@ -165,22 +167,46 @@ export async function createEvent(
     event.location = params.location;
   }
 
-  const response = await fetch(
-    `${GOOGLE_CALENDAR_API}/calendars/primary/events?sendUpdates=all`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
+  if (params.addMeetLink) {
+    event.conferenceData = {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: "hangoutsMeet" },
       },
-      body: JSON.stringify(event),
+    };
+  }
+
+  const url = params.addMeetLink
+    ? `${GOOGLE_CALENDAR_API}/calendars/primary/events?sendUpdates=all&conferenceDataVersion=1`
+    : `${GOOGLE_CALENDAR_API}/calendars/primary/events?sendUpdates=all`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(event),
+  });
 
   if (!response.ok) return null;
 
-  const data = (await response.json()) as { id: string };
-  return data.id;
+  const data = (await response.json()) as {
+    id: string;
+    hangoutLink?: string;
+    conferenceData?: {
+      entryPoints?: Array<{ entryPointType: string; uri: string }>;
+    };
+  };
+
+  const meetLink =
+    data.hangoutLink ??
+    data.conferenceData?.entryPoints?.find(
+      (e) => e.entryPointType === "video",
+    )?.uri ??
+    null;
+
+  return { eventId: data.id, meetLink };
 }
 
 export async function deleteEvent(
@@ -278,4 +304,19 @@ export interface GoogleCalendarEvent {
 export async function hasValidTokens(userId: string): Promise<boolean> {
   const token = await getValidAccessToken(userId);
   return token !== null;
+}
+
+/**
+ * Get the user ID of the first user with a valid Google OAuth token.
+ * Used by public booking endpoints that don't have an auth context.
+ */
+export async function getSystemUserId(): Promise<string | null> {
+  const sb = getSupabaseAdmin();
+  const { data } = await sb
+    .from("oauth_tokens")
+    .select("user_id")
+    .eq("provider", "google")
+    .limit(1)
+    .maybeSingle();
+  return data?.user_id ?? null;
 }

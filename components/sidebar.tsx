@@ -7,15 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import {
   DashboardIcon,
   InboxIcon,
-  CompaniesIcon,
-  ContactsIcon,
+  InboundIcon,
   DealsIcon,
-  TasksIcon,
-  ForecastIcon,
-  CalendarIcon,
   BookingsIcon,
-  BriefingsIcon,
-  DiscoveryIcon,
   BookingSettingsIcon,
   SignOutIcon,
   CollapseIcon,
@@ -25,21 +19,15 @@ interface NavItem {
   href: string;
   label: string;
   icon: ReactNode;
-  badgeKey?: "inbox" | "tasks";
+  badgeKey?: "inbox";
 }
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <DashboardIcon /> },
-  { href: "/inbox", label: "Inbox", icon: <InboxIcon />, badgeKey: "inbox" },
-  { href: "/companies", label: "Companies", icon: <CompaniesIcon /> },
-  { href: "/contacts", label: "Contacts", icon: <ContactsIcon /> },
-  { href: "/deals", label: "Deals", icon: <DealsIcon /> },
-  { href: "/tasks", label: "Tasks", icon: <TasksIcon />, badgeKey: "tasks" },
-  { href: "/forecast", label: "Forecast", icon: <ForecastIcon /> },
-  { href: "/calendar", label: "Calendar", icon: <CalendarIcon /> },
+  { href: "/inbound", label: "Inbound", icon: <InboundIcon /> },
   { href: "/bookings", label: "Bookings", icon: <BookingsIcon /> },
-  { href: "/briefings", label: "Briefings", icon: <BriefingsIcon /> },
-  { href: "/discovery", label: "Discovery", icon: <DiscoveryIcon /> },
+  { href: "/deals", label: "Deals", icon: <DealsIcon /> },
+  { href: "/inbox", label: "Inbox", icon: <InboxIcon />, badgeKey: "inbox" },
 ];
 
 const settingsItems: NavItem[] = [
@@ -74,22 +62,13 @@ export function Sidebar() {
   // Fetch badge counts
   useEffect(() => {
     async function fetchBadges() {
-      const [inboxRes, tasksRes] = await Promise.all([
-        supabase
-          .from("emails")
-          .select("id", { count: "exact", head: true })
-          .eq("direction", "inbound")
-          .eq("routing_status", "pending"),
-        supabase
-          .from("tasks")
-          .select("id", { count: "exact", head: true })
-          .is("completed_at", null)
-          .not("due_at", "is", null)
-          .lt("due_at", new Date().toISOString()),
-      ]);
+      const inboxRes = await supabase
+        .from("emails")
+        .select("id", { count: "exact", head: true })
+        .eq("direction", "inbound")
+        .eq("routing_status", "pending");
       setBadges({
         inbox: inboxRes.count ?? 0,
-        tasks: tasksRes.count ?? 0,
       });
     }
     fetchBadges();
